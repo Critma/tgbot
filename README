@@ -1,0 +1,7 @@
+create .env file in configs with this values:
+
+POSTGRES_DB=
+POSTGRES_USER=
+POSTGRES_PASSWORD=
+
+BOT_TOKEN=

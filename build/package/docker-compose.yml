@@ -2,15 +2,15 @@ name: tgsheduler
 services:
   postgres-db:
     image: postgres:18.1-alpine3.23
+    volumes:
+      - pdata:/var/lib/postgresql/data
+      - ./scripts/postgres:/docker-entrypoint-initdb.d
     restart: always
     container_name: pg_container
     environment:
       POSTGRES_DB: ${POSTGRES_DB}
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-    volumes:
-      - pdata:/var/lib/postgresql/data
-      - ./scripts/postgres:/docker-entrypoint-initdb.d
     ports:
       - "5432:5432"
     healthcheck:

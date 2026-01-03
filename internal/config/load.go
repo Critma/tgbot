@@ -17,6 +17,8 @@ type Config struct {
 	DBName         string `mapstructure:"POSTGRES_DB"`
 	DBPort         string `mapstructure:"POSTGRES_PORT"`
 	DB_URL         string `mapstructure:"POSTGRES_URL"`
+
+	TGBOT_TOKEN string `mapstructure:"BOT_TOKEN"`
 }
 
 func LoadConfig() (c *Config, err error) {

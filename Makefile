@@ -6,12 +6,14 @@ include $(ENV_PATH)
 compose-up:
 	docker-compose -f $(COMPOSE_PATH) --env-file $(ENV_PATH) up
 
-# run
+# run --
 run-debug:
 	go run cmd/bot/main.go -debug
 
 run-migrate:
 	go run cmd/migrate/main.go
+
+# --
 
 # migrate --
 migrate-create:

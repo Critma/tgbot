@@ -1,6 +1,6 @@
 CREATE TABLE reminders (
     id SERIAL PRIMARY KEY,
-    user_id INTEGER REFERENCES users(id),
+    user_id BIGINT REFERENCES users(telegram_id),
     message TEXT NOT NULL,
     scheduled_time TIMESTAMPTZ NOT NULL,
     repeat_interval INTERVAL,

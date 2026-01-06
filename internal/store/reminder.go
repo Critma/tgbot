@@ -4,7 +4,7 @@ import "time"
 
 type Reminder struct {
 	ID             int
-	UserID         int
+	UserTelegramID int64
 	Message        string
 	SheduledTime   time.Time
 	RepeatInterval time.Duration

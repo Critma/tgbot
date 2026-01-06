@@ -13,14 +13,14 @@ type RemindersStore struct {
 
 func (r *RemindersStore) Create(ctx context.Context, reminder *store.Reminder) error {
 	query := `
-		INSERT INTO reminders (id, user_id, message, scheduled_time, repeat_interval, is_active, created_at, updated_at)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+		INSERT INTO reminders (user_id, message, scheduled_time, repeat_interval)
+		 VALUES ($1, $2, $3, $4)
 	`
 
 	ctx, cancel := context.WithTimeout(ctx, store.QueryTimeoutDuration)
 	defer cancel()
 
-	_, err := r.DB.ExecContext(ctx, query, reminder.ID, reminder.UserID, reminder.Message, reminder.SheduledTime, reminder.RepeatInterval, reminder.IsActive, reminder.CreatedAt, reminder.UpdatedAt)
+	_, err := r.DB.ExecContext(ctx, query, reminder.UserTelegramID, reminder.Message, reminder.SheduledTime, reminder.RepeatInterval)
 	return err
 }
 
@@ -58,7 +58,7 @@ func (r *RemindersStore) GetByUserID(ctx context.Context, userID int) ([]*store.
 		}
 
 		reminder := &store.Reminder{}
-		err := rows.Scan(&reminder.ID, &reminder.UserID, &reminder.Message, &reminder.SheduledTime, &reminder.RepeatInterval, &reminder.IsActive, &reminder.CreatedAt, &reminder.UpdatedAt)
+		err := rows.Scan(&reminder.ID, &reminder.UserTelegramID, &reminder.Message, &reminder.SheduledTime, &reminder.RepeatInterval, &reminder.IsActive, &reminder.CreatedAt, &reminder.UpdatedAt)
 		if err != nil {
 			return nil, err
 		}

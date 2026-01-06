@@ -11,24 +11,39 @@ type UsersStore struct {
 	DB *sql.DB
 }
 
-func (u *UsersStore) Create(ctx context.Context, user *store.User) error {
+func (u *UsersStore) Create(ctx context.Context, userTelegramID int64) error {
 	query := `
-		INSERT INTO users (id, telegram_id, created_at) VALUES ($1, $2, $3)
+		INSERT INTO users (telegram_id) VALUES ($1)
 	`
 
 	ctx, cancel := context.WithTimeout(ctx, store.QueryTimeoutDuration)
 	defer cancel()
 
-	return u.DB.QueryRowContext(ctx, query, user.ID, user.TelegramID, user.CreatedAt).Err()
+	return u.DB.QueryRowContext(ctx, query, userTelegramID).Err()
 }
 
-func (u *UsersStore) DeleteByID(ctx context.Context, id int) error {
+func (u *UsersStore) GetByTelegramID(ctx context.Context, userTelegramID int64) (*store.User, error) {
 	query := `
-		DELETE FROM users WHERE id = $1
+			SELECT * FROM users WHERE telegram_id = $1
+		`
+
+	ctx, cancel := context.WithTimeout(ctx, store.QueryTimeoutDuration)
+	defer cancel()
+
+	user := &store.User{}
+	if err := u.DB.QueryRowContext(ctx, query, userTelegramID).Scan(&user.TelegramID, &user.CreatedAt); err != nil {
+		return nil, err
+	}
+	return user, nil
+}
+
+func (u *UsersStore) DeleteByTelegramID(ctx context.Context, userTelegramID int64) error {
+	query := `
+		DELETE FROM users WHERE telegram_id = $1
 	`
 
 	ctx, cancel := context.WithTimeout(ctx, store.QueryTimeoutDuration)
 	defer cancel()
 
-	return u.DB.QueryRowContext(ctx, query, id).Err()
+	return u.DB.QueryRowContext(ctx, query, userTelegramID).Err()
 }

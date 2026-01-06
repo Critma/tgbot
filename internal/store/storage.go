@@ -11,8 +11,9 @@ const (
 
 type Storage struct {
 	Users interface {
-		Create(context.Context, *User) error
-		DeleteByID(context.Context, int) error
+		Create(context.Context, int64) error
+		GetByTelegramID(context.Context, int64) (*User, error)
+		DeleteByTelegramID(context.Context, int64) error
 	}
 	Reminders interface {
 		Create(context.Context, *Reminder) error

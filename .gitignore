@@ -1,1 +1,5 @@
 .env
+.*air.toml
+*.log
+*.exe
+main

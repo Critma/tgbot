@@ -1,5 +1,4 @@
 CREATE TABLE users (
-    id SERIAL PRIMARY KEY,
-    telegram_id BIGINT UNIQUE NOT NULL,
+    telegram_id BIGSERIAL PRIMARY KEY,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );

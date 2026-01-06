@@ -32,14 +32,14 @@ func main() {
 	}
 	app := &config.Application{
 		Config: cfg,
-		DB:     db,
+		Store:  *postgres.NewStorage(db),
 	}
 
 	bot, err := tgbotapi.NewBotAPI(cfg.TGBOT_TOKEN)
 	if err != nil {
 		log.Fatal().Stack().Err(err)
 	}
-	log.Info().Msgf("Authorized on account %s", bot.Self.UserName)
+	log.Info().Str("start", "authorized on account "+bot.Self.UserName).Send()
 	u := tgbotapi.NewUpdate(0)
 	u.Timeout = 60
 	updates := bot.GetUpdatesChan(u)

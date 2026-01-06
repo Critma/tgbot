@@ -1,13 +1,10 @@
 package config
 
 import (
-	"database/sql"
-
-	"github.com/rs/zerolog"
+	"github.com/critma/tgsheduler/internal/store"
 )
 
 type Application struct {
 	Config *Config
-	DB     *sql.DB
-	logger *zerolog.Logger
+	Store  store.Storage
 }

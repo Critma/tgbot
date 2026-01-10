@@ -1,16 +1,18 @@
 package commands
 
-import tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
+import (
+	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
+)
 
-func (c *Commands) HandleHelp(ChatID int64) {
-	commands := `Commands:
-	/add {dd.mm.yyyy} {hh:mm} {event} - add new task
-	/list - show all tasks
-	/edit - edit task
-	/delete - delete task
-	/help - show help
+func (c *CommandDeps) HandleHelp(update *tgbotapi.Update) {
+	message := `Commands:
+	/` + string(Add) + ` {dd.mm.yyyy} {hh:mm} {event} - add new task
+	/` + string(List) + ` - show all tasks
+	/` + string(Edit) + `  - edit task
+	/` + string(Delete) + `  - delete task
+	/` + string(Help) + `  - show help
 	`
 
-	msg := tgbotapi.NewMessage(ChatID, commands)
+	msg := tgbotapi.NewMessage(update.Message.Chat.ID, message)
 	c.bot.Send(msg)
 }

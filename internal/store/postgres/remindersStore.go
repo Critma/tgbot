@@ -5,6 +5,7 @@ import (
 	"database/sql"
 
 	"github.com/critma/tgsheduler/internal/store"
+	"github.com/sanyokbig/pqinterval"
 )
 
 type RemindersStore struct {
@@ -38,9 +39,9 @@ func (r *RemindersStore) Update(ctx context.Context, reminder *store.Reminder) e
 	return err
 }
 
-func (r *RemindersStore) GetByUserID(ctx context.Context, userID int) ([]*store.Reminder, error) {
+func (r *RemindersStore) GetByUserID(ctx context.Context, userID int64) ([]*store.Reminder, error) {
 	query := `
-		SELECT * from reminders WHERE user_id = $1
+		SELECT id, user_id, message, scheduled_time, repeat_interval, is_active, created_at, updated_at from reminders WHERE user_id = $1
 	`
 
 	ctx, cancel := context.WithTimeout(ctx, store.QueryTimeoutDuration)
@@ -58,10 +59,18 @@ func (r *RemindersStore) GetByUserID(ctx context.Context, userID int) ([]*store.
 		}
 
 		reminder := &store.Reminder{}
-		err := rows.Scan(&reminder.ID, &reminder.UserTelegramID, &reminder.Message, &reminder.SheduledTime, &reminder.RepeatInterval, &reminder.IsActive, &reminder.CreatedAt, &reminder.UpdatedAt)
+		var ival pqinterval.Interval
+		//TODO tz not scanned
+		err := rows.Scan(&reminder.ID, &reminder.UserTelegramID, &reminder.Message, &reminder.SheduledTime, &ival, &reminder.IsActive, &reminder.CreatedAt, &reminder.UpdatedAt)
 		if err != nil {
 			return nil, err
 		}
+
+		reminder.RepeatInterval, err = ival.Duration()
+		if err != nil {
+			return nil, err
+		}
+
 		reminders = append(reminders, reminder)
 	}
 

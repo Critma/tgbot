@@ -3,6 +3,7 @@ package postgres
 import (
 	"context"
 	"database/sql"
+	"errors"
 
 	"github.com/critma/tgsheduler/internal/store"
 	"github.com/sanyokbig/pqinterval"
@@ -29,14 +30,26 @@ func (r *RemindersStore) Update(ctx context.Context, reminder *store.Reminder) e
 	query := `
 		UPDATE reminders
 		 SET message = $1, scheduled_time = $2, repeat_interval = $3, is_active = $4
-		 WHERE id = $6
+		 WHERE id = $5
 	`
 
 	ctx, cancel := context.WithTimeout(ctx, store.QueryTimeoutDuration)
 	defer cancel()
 
-	_, err := r.DB.ExecContext(ctx, query, reminder.Message, reminder.SheduledTime, reminder.RepeatInterval, reminder.IsActive, reminder.ID)
-	return err
+	result, err := r.DB.ExecContext(ctx, query, reminder.Message, reminder.SheduledTime, reminder.RepeatInterval, reminder.IsActive, reminder.ID)
+	if err != nil {
+		return err
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+
+	if rowsAffected == 0 {
+		return errors.New("zero affected rows")
+	}
+	return nil
 }
 
 func (r *RemindersStore) GetByUserID(ctx context.Context, userID int64) ([]*store.Reminder, error) {

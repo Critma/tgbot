@@ -9,5 +9,5 @@ import (
 func (c *CommandDeps) CreateUser(userID int64) {
 	user := &store.User{TelegramID: userID, UTC: 3}
 
-	_ = c.app.Store.Users.Create(context.Background(), user)
+	_ = c.App.Store.Users.Create(context.Background(), user)
 }

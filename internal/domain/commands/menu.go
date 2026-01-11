@@ -17,7 +17,7 @@ func (c *CommandDeps) ShowInlineMenu(update *tgbotapi.Update) {
 	)
 	msg := tgbotapi.NewMessage(update.Message.Chat.ID, message)
 	msg.ReplyMarkup = keyboard
-	c.bot.Send(msg)
+	c.Bot.Send(msg)
 }
 
 func (c *CommandDeps) GetKeyboardMenu() tgbotapi.ReplyKeyboardMarkup {

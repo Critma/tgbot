@@ -1,6 +1,8 @@
 package domain
 
 import (
+	"strings"
+
 	"github.com/critma/tgsheduler/internal/config"
 	"github.com/critma/tgsheduler/internal/domain/commands"
 	"github.com/critma/tgsheduler/internal/logger"
@@ -17,7 +19,6 @@ func Receiver(updates tgbotapi.UpdatesChannel, bot *tgbotapi.BotAPI, app *config
 			if update.Message.IsCommand() {
 				handleCommands(&update, c)
 			} else if update.Message.Text != "" {
-				// text messages
 				HandleText(&update, c)
 			}
 
@@ -41,10 +42,10 @@ func handleCommands(update *tgbotapi.Update, c *commands.CommandDeps) {
 		c.SaveTimezone(update)
 	case "list":
 		c.List(update.Message.From.ID)
-	// case "edit":
-	// 	//TODO
-	// case "delete":
-	// 	//TODO
+	case "edit":
+		c.EditTask(update)
+	case "delete":
+		c.ShowDeleteList(update.Message.From.ID)
 	case "help":
 		c.HandleHelp(update)
 	}
@@ -61,12 +62,29 @@ func HandleCallbacks(update *tgbotapi.Update, c *commands.CommandDeps) {
 	callback := update.CallbackQuery
 	log.Info().Str("event", "receive callback").Str("user", callback.From.UserName).Int64("userID", callback.From.ID).Str("callback", callback.Data).Send()
 
+	clMessage := ""
 	switch commands.Callback(callback.Data) {
 	case commands.AddCallback:
 		c.ShowAddTooltip(update)
+		clMessage = "Добавить уведомление"
+	case commands.EditCallback:
+		c.ShowEditTooltip(callback.From.ID)
+		clMessage = "Редактировать уведомление"
+	case commands.DeleteCallback:
+		c.ShowDeleteList(update.CallbackQuery.From.ID)
+		clMessage = "Показать список для удаления"
 	case commands.TimezoneCallback:
 		c.ShowUserTimezone(update.CallbackQuery.From.ID)
+		clMessage = "Показать UTC"
 	case commands.ListCallback:
 		c.List(callback.From.ID)
+		clMessage = "Показать список уведомлений"
 	}
+	if strings.HasPrefix(callback.Data, string(commands.DeleteItemCallback)) {
+		c.DeleteReminder(update)
+		clMessage = "Удалить уведомление"
+	}
+
+	cl := tgbotapi.NewCallback(callback.ID, clMessage)
+	c.Bot.Request(cl)
 }

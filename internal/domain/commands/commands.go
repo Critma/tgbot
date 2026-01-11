@@ -6,14 +6,14 @@ import (
 )
 
 type CommandDeps struct {
-	bot *tgbotapi.BotAPI
-	app *config.Application
+	Bot *tgbotapi.BotAPI
+	App *config.Application
 }
 
 func NewCommands(bot *tgbotapi.BotAPI, app *config.Application) *CommandDeps {
 	return &CommandDeps{
-		bot: bot,
-		app: app,
+		Bot: bot,
+		App: app,
 	}
 }
 
@@ -41,4 +41,6 @@ const (
 	DeleteCallback   Callback = "delete"
 	MenuCallback     Callback = "menu"
 	TimezoneCallback Callback = "tz"
+
+	DeleteItemCallback Callback = "delete_item"
 )

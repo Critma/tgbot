@@ -6,13 +6,15 @@ import (
 
 func (c *CommandDeps) HandleHelp(update *tgbotapi.Update) {
 	message := `Commands:
-	/` + string(Add) + ` {dd.mm.yyyy} {hh:mm} {event} - add new task
-	/` + string(List) + ` - show all tasks
-	/` + string(Edit) + `  - edit task
-	/` + string(Delete) + `  - delete task
-	/` + string(Help) + `  - show help
+	/` + string(Add) + ` {dd.mm.yyyy} {hh:mm} {event} - добавить уведомление
+	/` + string(List) + ` - показать ваш список уведомлений
+	/` + string(Edit) + ` {id} {dd.mm.yyyy} {hh:mm} {event} - редактировать уведомление
+	/` + string(Delete) + `  - удалить уведомление
+	/` + string(Help) + `  - показать помощь
+	/` + string(Timezone) + `  - показать UTC
+	/` + string(Timezone) + ` {value}  - изменить UTC
 	`
 
 	msg := tgbotapi.NewMessage(update.Message.Chat.ID, message)
-	c.bot.Send(msg)
+	c.Bot.Send(msg)
 }

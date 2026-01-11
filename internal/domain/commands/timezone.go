@@ -16,33 +16,33 @@ func (c *CommandDeps) ShowTimezoneTooltip(update *tgbotapi.Update) {
 	message := fmt.Sprintf("Выберите своё UTC время, по умолчанию +3 (Московское время)\nКоманда: /%s +5", string(Timezone))
 	msg := tgbotapi.NewMessage(update.Message.Chat.ID, message)
 	msg.ReplyMarkup = c.GetKeyboardMenu()
-	c.bot.Send(msg)
+	c.Bot.Send(msg)
 }
 
 func (c *CommandDeps) SaveTimezone(update *tgbotapi.Update) {
 	fields := strings.Fields(update.Message.Text)
 	if len(fields) != 2 {
 		logger.AddUserInfo(update, log.Error().Str("message", "failed to parse timezone").Any("fields", fields).Str("error", "fields len != 2")).Send()
-		c.bot.Send(tgbotapi.NewMessage(update.Message.Chat.ID, "Ошибка формата команды"))
+		c.Bot.Send(tgbotapi.NewMessage(update.Message.Chat.ID, "Ошибка формата команды"))
 		return
 	}
 
 	utc, err := strconv.ParseInt(fields[1], 10, 8)
 	if err != nil {
 		logger.AddUserInfo(update, log.Error().Str("message", "failed to parse timezone").Str("strToParse", fields[1]).Err(err)).Send()
-		c.bot.Send(tgbotapi.NewMessage(update.Message.Chat.ID, "Ошибка формата utc"))
+		c.Bot.Send(tgbotapi.NewMessage(update.Message.Chat.ID, "Ошибка формата utc"))
 		return
 	}
 	if !c.IsCorrectUTC(int8(utc)) {
 		logger.AddUserInfo(update, log.Error().Str("message", "failed to save timezone").Str("timezone", fields[1]).Str("error", "timezone should be -12 - +14")).Send()
-		c.bot.Send(tgbotapi.NewMessage(update.Message.Chat.ID, "Ошибка формата часового пояса, UTC должен быть от -12 до +14"))
+		c.Bot.Send(tgbotapi.NewMessage(update.Message.Chat.ID, "Ошибка формата часового пояса, UTC должен быть от -12 до +14"))
 		return
 	}
 
 	userID := update.Message.From.ID
 	user := &store.User{TelegramID: userID, UTC: int8(utc)}
 
-	err = c.app.Store.Users.CreateOrUpdate(context.Background(), user)
+	err = c.App.Store.Users.CreateOrUpdate(context.Background(), user)
 	var tgMessage string
 	if err != nil {
 		logger.AddUserInfo(update, log.Error().Str("message", "failed to save timezone").Str("timezone", fields[1]).Err(err)).Send()
@@ -51,14 +51,14 @@ func (c *CommandDeps) SaveTimezone(update *tgbotapi.Update) {
 		logger.AddUserInfo(update, log.Info().Str("message", "timezone saved").Str("timezone", fields[1])).Send()
 		tgMessage = "Часовой пояс сохранён!"
 	}
-	c.bot.Send(tgbotapi.NewMessage(userID, tgMessage))
+	c.Bot.Send(tgbotapi.NewMessage(userID, tgMessage))
 }
 
 func (c *CommandDeps) ShowUserTimezone(userID int64) {
-	user, err := c.app.Store.Users.GetByTelegramID(context.Background(), userID)
+	user, err := c.App.Store.Users.GetByTelegramID(context.Background(), userID)
 	if err != nil {
 		log.Error().Str("message", "get-user error").Err(err).Str("userID", "userID").Send()
-		c.bot.Send(tgbotapi.NewMessage(userID, "Ошибка получения информации о пользователе"))
+		c.Bot.Send(tgbotapi.NewMessage(userID, "Ошибка получения информации о пользователе"))
 		return
 	}
 	sign := ""
@@ -68,7 +68,7 @@ func (c *CommandDeps) ShowUserTimezone(userID int64) {
 		sign = "+"
 	}
 	msg := fmt.Sprintf("🕛Ваш UTC : %s%v🕛\nДля смены: /%s {значение}\nНапример: /%s +5", sign, user.UTC, string(Timezone), string(Timezone))
-	c.bot.Send(tgbotapi.NewMessage(userID, msg))
+	c.Bot.Send(tgbotapi.NewMessage(userID, msg))
 }
 
 func (c *CommandDeps) IsCorrectUTC(utc int8) bool {

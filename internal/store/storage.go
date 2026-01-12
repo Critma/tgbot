@@ -17,8 +17,10 @@ type Storage struct {
 		DeleteByTelegramID(context.Context, int64) error
 	}
 	Reminders interface {
-		Create(context.Context, *Reminder) error
+		Create(context.Context, *Reminder) (*Reminder, error)
 		Update(context.Context, *Reminder) error
+		UpdateMessage(ctx context.Context, reminderID int, message string) error
+		GetByID(context.Context, int) (*Reminder, error)
 		GetByUserID(context.Context, int64) ([]*Reminder, error)
 		DeleteByID(context.Context, int) error
 	}

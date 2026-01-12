@@ -73,4 +73,6 @@ func (c *CommandDeps) DeleteReminder(update *tgbotapi.Update) {
 	}
 	log.Info().Str("message", "delete reminder").Int64("reminderId", reminderID).Send()
 	c.Bot.Send(tgbotapi.NewMessage(update.CallbackQuery.From.ID, "Удаление успешно!"))
+
+	//TODO delete from broker
 }

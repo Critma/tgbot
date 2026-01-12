@@ -4,7 +4,7 @@ MIGRATIONS_PATH=cmd/migrate/migrations
 include $(ENV_PATH)
 
 compose-up:
-	docker-compose -f $(COMPOSE_PATH) --env-file $(ENV_PATH) up
+	docker-compose -f $(COMPOSE_PATH) --env-file $(ENV_PATH) up -d
 
 # run --
 run-debug:

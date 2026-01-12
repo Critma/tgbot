@@ -21,7 +21,10 @@ func (c *CommandDeps) ShowTimezoneTooltip(update *tgbotapi.Update) {
 
 func (c *CommandDeps) SaveTimezone(update *tgbotapi.Update) {
 	fields := strings.Fields(update.Message.Text)
-	if len(fields) != 2 {
+	if len(fields) == 1 {
+		c.ShowUserTimezone(update.Message.From.ID)
+		return
+	} else if len(fields) != 2 {
 		logger.AddUserInfo(update, log.Error().Str("message", "failed to parse timezone").Any("fields", fields).Str("error", "fields len != 2")).Send()
 		c.Bot.Send(tgbotapi.NewMessage(update.Message.Chat.ID, "Ошибка формата команды"))
 		return

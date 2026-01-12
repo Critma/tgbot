@@ -18,6 +18,8 @@ type Config struct {
 	DBPort         string `mapstructure:"POSTGRES_PORT"`
 	DB_URL         string `mapstructure:"POSTGRES_URL"`
 
+	REDIS_URL string `mapstructure:"REDIS_URL"`
+
 	TGBOT_TOKEN string `mapstructure:"BOT_TOKEN"`
 }
 

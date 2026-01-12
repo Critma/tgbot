@@ -40,13 +40,13 @@ func handleCommands(update *tgbotapi.Update, c *commands.CommandDeps) {
 		c.AddTask(update)
 	case commands.Timezone:
 		c.SaveTimezone(update)
-	case "list":
+	case commands.List:
 		c.List(update.Message.From.ID)
-	case "edit":
+	case commands.Edit:
 		c.EditTask(update)
-	case "delete":
+	case commands.Delete:
 		c.ShowDeleteList(update.Message.From.ID)
-	case "help":
+	case commands.Help:
 		c.HandleHelp(update)
 	}
 }
@@ -65,7 +65,7 @@ func HandleCallbacks(update *tgbotapi.Update, c *commands.CommandDeps) {
 	clMessage := ""
 	switch commands.Callback(callback.Data) {
 	case commands.AddCallback:
-		c.ShowAddTooltip(update)
+		c.ShowAddTooltip(callback.From.ID)
 		clMessage = "Добавить уведомление"
 	case commands.EditCallback:
 		c.ShowEditTooltip(callback.From.ID)

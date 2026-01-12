@@ -20,5 +20,28 @@ services:
       retries: 5
       start_period: 30s
 
+  redis:
+    image: redis:8.4.0-alpine
+    container_name: redis_container
+    ports:
+      - "6379:6379"
+    networks:
+      - dev-network
+    command: redis-server --save 60 1 --loglevel warning
+
+  asynqmon:
+    image: hibiken/asynqmon
+    container_name: asynqmon
+    ports:
+      - "8080:8080"
+    depends_on:
+      - redis
+    networks:
+      - dev-network
+    command: --redis-addr=redis:${REDIS_PORT}
+
+networks:
+  dev-network:
+
 volumes:
   pdata:

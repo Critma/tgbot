@@ -8,7 +8,7 @@ func (c *CommandDeps) HandleHelp(update *tgbotapi.Update) {
 	message := `Commands:
 	/` + string(Add) + ` {dd.mm.yyyy} {hh:mm} {event} - добавить уведомление
 	/` + string(List) + ` - показать ваш список уведомлений
-	/` + string(Edit) + ` {id} {dd.mm.yyyy} {hh:mm} {event} - редактировать уведомление
+	/` + string(Edit) + ` {id} {new event} - редактировать уведомление
 	/` + string(Delete) + `  - удалить уведомление
 	/` + string(Help) + `  - показать помощь
 	/` + string(Timezone) + `  - показать UTC

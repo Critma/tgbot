@@ -32,24 +32,24 @@ func (c *CommandDeps) AddTask(update *tgbotapi.Update) {
 		return
 	}
 
+	userID := update.Message.From.ID
+	user, err := c.App.Store.Users.GetByTelegramID(context.Background(), userID)
+	if user == nil {
+		logger.AddUserInfo(update, log.Error().Str("message", "failed to get user").Err(err)).Send()
+		c.Bot.Send(tgbotapi.NewMessage(chatID, "Ошибка получения информации о пользователе"))
+		return
+	}
+
 	parseLayout := `02.01.2006T15:04`
+	userTZ := time.FixedZone("User_loc", int(time.Hour.Seconds())*int(user.UTC))
 	toParse := fields[1] + "T" + fields[2]
-	t, err := time.Parse(parseLayout, toParse)
+	t, err := time.ParseInLocation(parseLayout, toParse, userTZ)
 	if err != nil {
 		logger.AddUserInfo(update, log.Error().Str("message", "failed to parse time").Str("strToParse", toParse).Err(err)).Send()
 		message := tgbotapi.NewMessage(chatID, "Ошибка формата даты/времени")
 		c.Bot.Send(message)
 		return
 	}
-
-	userID := update.Message.From.ID
-	user, _ := c.App.Store.Users.GetByTelegramID(context.Background(), userID)
-	if user == nil {
-		logger.AddUserInfo(update, log.Error().Str("message", "failed to get user").Err(err)).Send()
-		c.Bot.Send(tgbotapi.NewMessage(chatID, "Ошибка получения информации о пользователе"))
-		return
-	}
-	t = t.In(time.FixedZone("Custom_time", int(time.Hour.Seconds())*int(user.UTC)))
 
 	reminder := &store.Reminder{UserTelegramID: userID, Message: strings.Join(fields[3:], " "), SheduledTime: t}
 	result, err := c.App.Store.Reminders.Create(context.Background(), reminder)
@@ -60,7 +60,6 @@ func (c *CommandDeps) AddTask(update *tgbotapi.Update) {
 	}
 
 	// broker
-	//TODO time fix
 	shouldReturn := sendToBroker(result, userID, update, c, chatID, t)
 	if shouldReturn {
 		return
@@ -79,7 +78,6 @@ func sendToBroker(result *store.Reminder, userID int64, update *tgbotapi.Update,
 		return true
 	}
 
-	//TODO время не верно рассчитывается
 	info, err := c.App.Broker.Enqueue(task, asynq.ProcessAt(t))
 	if err != nil {
 		logger.AddUserInfo(update, log.Info().Str("event", "send to broker").Str("message", "could not schedule task").Err(err)).Send()

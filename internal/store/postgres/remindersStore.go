@@ -85,6 +85,7 @@ func (r *RemindersStore) UpdateMessage(ctx context.Context, reminderID int, mess
 	return nil
 }
 
+// return time in UTC+0
 func (r *RemindersStore) GetByUserID(ctx context.Context, userID int64) ([]*store.Reminder, error) {
 	query := `
 		SELECT id, user_id, message, scheduled_time, repeat_interval, is_active, created_at, updated_at from reminders WHERE user_id = $1
@@ -106,7 +107,6 @@ func (r *RemindersStore) GetByUserID(ctx context.Context, userID int64) ([]*stor
 
 		reminder := &store.Reminder{}
 		var ival pqinterval.Interval
-		//TODO tz not scanned
 		err := rows.Scan(&reminder.ID, &reminder.UserTelegramID, &reminder.Message, &reminder.SheduledTime, &ival, &reminder.IsActive, &reminder.CreatedAt, &reminder.UpdatedAt)
 		if err != nil {
 			return nil, err
@@ -123,6 +123,7 @@ func (r *RemindersStore) GetByUserID(ctx context.Context, userID int64) ([]*stor
 	return reminders, nil
 }
 
+// return time in UTC+0
 func (r *RemindersStore) GetByID(ctx context.Context, id int) (*store.Reminder, error) {
 	query := `
 		SELECT id, user_id, message, scheduled_time, repeat_interval, is_active, created_at, updated_at
@@ -139,7 +140,6 @@ func (r *RemindersStore) GetByID(ctx context.Context, id int) (*store.Reminder, 
 	}
 
 	reminder := &store.Reminder{}
-	//TODO scan timezone
 	var ival pqinterval.Interval
 	err := row.Scan(&reminder.ID, &reminder.UserTelegramID, &reminder.Message, &reminder.SheduledTime, &ival, &reminder.IsActive, &reminder.CreatedAt, &reminder.UpdatedAt)
 	if err != nil {

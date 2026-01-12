@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/critma/tgsheduler/internal/config"
+	"github.com/critma/tgsheduler/internal/domain/helpers"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"github.com/hibiken/asynq"
 	"github.com/rs/zerolog/log"
@@ -56,10 +57,19 @@ func (p *ReminderProcessor) ProcessTask(ctx context.Context, t *asynq.Task) erro
 	reminder, err := p.app.Store.Reminders.GetByID(ctx, payload.ReminderID)
 	if err != nil {
 		log.Error().Str("event", "task handling").Str("message", "failed to get reminder").Err(err).Send()
+		return err
 	}
-	log.Info().Str("event", "send event to tg").Int64("userID", payload.UserID).Send()
+
+	user, err := p.app.Store.Users.GetByTelegramID(context.Background(), payload.UserID)
+	if err != nil {
+		log.Error().Str("message", "failed to get user timezone").Err(err).Int64("userID", payload.UserID).Send()
+		return err
+	}
+
+	reminder.SheduledTime = helpers.TimeToUserTZ(user, reminder.SheduledTime)
 	msg := tgbotapi.NewMessage(payload.UserID, fmt.Sprintf("❗Уведомление❗\n[%s] - %s", reminder.SheduledTime.Format("02.01.2006 15:04"), reminder.Message))
 	p.bot.Send(msg)
+	log.Info().Str("event", "send event to tg").Int64("userID", payload.UserID).Send()
 
 	return nil
 }

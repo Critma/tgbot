@@ -11,4 +11,6 @@ type Reminder struct {
 	IsActive       bool
 	CreatedAt      time.Time
 	UpdatedAt      time.Time
+	TaskID         string
+	TaskQueue      string
 }

@@ -8,5 +8,10 @@ import (
 type Application struct {
 	Config *Config
 	Store  store.Storage
-	Broker *asynq.Client
+	Broker *Broker
+}
+
+type Broker struct {
+	Client    *asynq.Client
+	Inspector *asynq.Inspector
 }

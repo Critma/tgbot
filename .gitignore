@@ -4,3 +4,4 @@
 *.exe
 main
 .vscode
+*tmp

@@ -60,8 +60,19 @@ func (c *CommandDeps) AddTask(update *tgbotapi.Update) {
 	}
 
 	// broker
-	shouldReturn := sendToBroker(result, userID, update, c, chatID, t)
-	if shouldReturn {
+	taskInfo := sendToBroker(result, userID, update, c, chatID, t)
+	if taskInfo == nil {
+		return
+	}
+
+	//update reminder with task id, queue
+	result.TaskID = taskInfo.ID
+	result.TaskQueue = taskInfo.Queue
+	err = c.App.Store.Reminders.Update(context.Background(), result)
+	if err != nil {
+		logger.AddUserInfo(update, log.Error().Str("message", "failed to update reminder with task_id, task_queue").Err(err).Any("reminder", reminder).Any("user", user)).Send()
+		c.App.Store.Reminders.DeleteByID(context.Background(), result.ID)
+		c.Bot.Send(tgbotapi.NewMessage(chatID, "Ошибка создания уведомления"))
 		return
 	}
 
@@ -69,24 +80,24 @@ func (c *CommandDeps) AddTask(update *tgbotapi.Update) {
 	c.Bot.Send(tgbotapi.NewMessage(chatID, "Уведомление создано!"))
 }
 
-func sendToBroker(result *store.Reminder, userID int64, update *tgbotapi.Update, c *CommandDeps, chatID int64, t time.Time) bool {
+func sendToBroker(result *store.Reminder, userID int64, update *tgbotapi.Update, c *CommandDeps, chatID int64, t time.Time) *asynq.TaskInfo {
 	task, err := tasks.NewReminderDeliveryTask(result.ID, userID)
 	if err != nil {
 		logger.AddUserInfo(update, log.Info().Str("event", "send to broker").Str("message", "could not schedule task").Err(err)).Send()
 		c.App.Store.Reminders.DeleteByID(context.Background(), result.ID)
 		c.Bot.Send(tgbotapi.NewMessage(chatID, "Ошибка создания уведомления"))
-		return true
+		return nil
 	}
 
-	info, err := c.App.Broker.Enqueue(task, asynq.ProcessAt(t))
+	info, err := c.App.Broker.Client.Enqueue(task, asynq.MaxRetry(1), asynq.ProcessAt(t))
 	if err != nil {
 		logger.AddUserInfo(update, log.Info().Str("event", "send to broker").Str("message", "could not schedule task").Err(err)).Send()
 		c.App.Store.Reminders.DeleteByID(context.Background(), result.ID)
 		c.Bot.Send(tgbotapi.NewMessage(chatID, "Ошибка создания уведомления"))
-		return true
+		return nil
 	}
-	logger.AddUserInfo(update, log.Info().Str("event", "sheduled task").Str("infoID", info.ID).Str("queue", info.Queue)).Send()
+	logger.AddUserInfo(update, log.Info().Str("event", "sheduled task").Str("taskID", info.ID).Str("queue", info.Queue)).Send()
 
 	// fmt.Printf("\n%s\n", t.Format("02.01.2006 15:04 -07:00"))
-	return false
+	return info
 }

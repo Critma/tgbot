@@ -35,13 +35,17 @@ func main() {
 	}
 
 	// asynq client
-	client := asynq.NewClient(asynq.RedisClientOpt{Addr: cfg.REDIS_URL, DB: 0})
+	clientOpt := asynq.RedisClientOpt{Addr: cfg.REDIS_URL, DB: 0}
+	client := asynq.NewClient(clientOpt)
 	defer client.Close()
+
+	inspector := asynq.NewInspector(clientOpt)
+	defer inspector.Close()
 
 	app := &config.Application{
 		Config: cfg,
 		Store:  *postgres.NewStorage(db),
-		Broker: client,
+		Broker: &config.Broker{Client: client, Inspector: inspector},
 	}
 
 	// tgbot

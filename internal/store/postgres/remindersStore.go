@@ -15,14 +15,16 @@ type RemindersStore struct {
 
 func (r *RemindersStore) Create(ctx context.Context, reminder *store.Reminder) (*store.Reminder, error) {
 	query := `
-		INSERT INTO reminders (user_id, message, scheduled_time, repeat_interval)
-		 VALUES ($1, $2, $3, $4) RETURNING id
+		INSERT INTO reminders (user_id, message, scheduled_time, repeat_interval, task_id, task_queue)
+		 VALUES ($1, $2, $3, $4, $5, $6) RETURNING id
 	`
 
 	ctx, cancel := context.WithTimeout(ctx, store.QueryTimeoutDuration)
 	defer cancel()
 
-	row := r.DB.QueryRowContext(ctx, query, reminder.UserTelegramID, reminder.Message, reminder.SheduledTime, reminder.RepeatInterval)
+	row := r.DB.QueryRowContext(ctx, query, reminder.UserTelegramID,
+		reminder.Message, reminder.SheduledTime, reminder.RepeatInterval,
+		reminder.TaskID, reminder.TaskQueue)
 	if row.Err() != nil {
 		return nil, row.Err()
 	}
@@ -36,14 +38,14 @@ func (r *RemindersStore) Create(ctx context.Context, reminder *store.Reminder) (
 func (r *RemindersStore) Update(ctx context.Context, reminder *store.Reminder) error {
 	query := `
 		UPDATE reminders
-		 SET message = $1, scheduled_time = $2, repeat_interval = $3, is_active = $4
-		 WHERE id = $5
+		 SET message = $1, scheduled_time = $2, repeat_interval = $3, is_active = $4, task_id = $5, task_queue = $6
+		 WHERE id = $7
 	`
 
 	ctx, cancel := context.WithTimeout(ctx, store.QueryTimeoutDuration)
 	defer cancel()
 
-	result, err := r.DB.ExecContext(ctx, query, reminder.Message, reminder.SheduledTime, reminder.RepeatInterval, reminder.IsActive, reminder.ID)
+	result, err := r.DB.ExecContext(ctx, query, reminder.Message, reminder.SheduledTime, reminder.RepeatInterval, reminder.IsActive, reminder.TaskID, reminder.TaskQueue, reminder.ID)
 	if err != nil {
 		return err
 	}
@@ -88,7 +90,8 @@ func (r *RemindersStore) UpdateMessage(ctx context.Context, reminderID int, mess
 // return time in UTC+0
 func (r *RemindersStore) GetByUserID(ctx context.Context, userID int64) ([]*store.Reminder, error) {
 	query := `
-		SELECT id, user_id, message, scheduled_time, repeat_interval, is_active, created_at, updated_at from reminders WHERE user_id = $1
+		SELECT id, user_id, message, scheduled_time, repeat_interval, is_active, created_at, updated_at, task_id, task_queue
+		FROM reminders WHERE user_id = $1
 	`
 
 	ctx, cancel := context.WithTimeout(ctx, store.QueryTimeoutDuration)
@@ -107,7 +110,7 @@ func (r *RemindersStore) GetByUserID(ctx context.Context, userID int64) ([]*stor
 
 		reminder := &store.Reminder{}
 		var ival pqinterval.Interval
-		err := rows.Scan(&reminder.ID, &reminder.UserTelegramID, &reminder.Message, &reminder.SheduledTime, &ival, &reminder.IsActive, &reminder.CreatedAt, &reminder.UpdatedAt)
+		err := rows.Scan(&reminder.ID, &reminder.UserTelegramID, &reminder.Message, &reminder.SheduledTime, &ival, &reminder.IsActive, &reminder.CreatedAt, &reminder.UpdatedAt, &reminder.TaskID, &reminder.TaskQueue)
 		if err != nil {
 			return nil, err
 		}
@@ -126,7 +129,7 @@ func (r *RemindersStore) GetByUserID(ctx context.Context, userID int64) ([]*stor
 // return time in UTC+0
 func (r *RemindersStore) GetByID(ctx context.Context, id int) (*store.Reminder, error) {
 	query := `
-		SELECT id, user_id, message, scheduled_time, repeat_interval, is_active, created_at, updated_at
+		SELECT id, user_id, message, scheduled_time, repeat_interval, is_active, created_at, updated_at, task_id, task_queue
 		FROM reminders
 		WHERE id = $1
 	`
@@ -141,7 +144,7 @@ func (r *RemindersStore) GetByID(ctx context.Context, id int) (*store.Reminder, 
 
 	reminder := &store.Reminder{}
 	var ival pqinterval.Interval
-	err := row.Scan(&reminder.ID, &reminder.UserTelegramID, &reminder.Message, &reminder.SheduledTime, &ival, &reminder.IsActive, &reminder.CreatedAt, &reminder.UpdatedAt)
+	err := row.Scan(&reminder.ID, &reminder.UserTelegramID, &reminder.Message, &reminder.SheduledTime, &ival, &reminder.IsActive, &reminder.CreatedAt, &reminder.UpdatedAt, &reminder.TaskID, &reminder.TaskQueue)
 	if err != nil {
 		return nil, err
 	}

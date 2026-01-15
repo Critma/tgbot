@@ -2,9 +2,11 @@ package main
 
 import (
 	"flag"
+	"time"
 
 	"github.com/critma/tgsheduler/internal/config"
 	"github.com/critma/tgsheduler/internal/domain"
+	"github.com/critma/tgsheduler/internal/ratelimiter"
 	"github.com/critma/tgsheduler/internal/store/postgres"
 	"github.com/critma/tgsheduler/internal/tasks"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
@@ -42,11 +44,8 @@ func main() {
 	inspector := asynq.NewInspector(clientOpt)
 	defer inspector.Close()
 
-	app := &config.Application{
-		Config: cfg,
-		Store:  *postgres.NewStorage(db),
-		Broker: &config.Broker{Client: client, Inspector: inspector},
-	}
+	//ratelimiter
+	rateLimiter := ratelimiter.NewFixedWindowRateLimiter(cfg.RatelimiterRequests, time.Second*time.Duration(cfg.RatelimiterTimeFrameSeconds))
 
 	// tgbot
 	bot, err := tgbotapi.NewBotAPI(cfg.TGBOT_TOKEN)
@@ -58,11 +57,19 @@ func main() {
 	u.Timeout = 60
 	updates := bot.GetUpdatesChan(u)
 
+	app := &config.Application{
+		Config:      cfg,
+		Store:       *postgres.NewStorage(db),
+		Broker:      &config.Broker{Client: client, Inspector: inspector},
+		RateLimiter: rateLimiter,
+		Bot:         bot,
+	}
+
 	//workers
 	go startWorkers(cfg, bot, app)
 
 	//start bot
-	domain.Receiver(updates, bot, app)
+	domain.Receiver(updates, app)
 }
 
 func startWorkers(cfg *config.Config, bot *tgbotapi.BotAPI, app *config.Application) {

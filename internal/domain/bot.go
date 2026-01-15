@@ -1,6 +1,7 @@
 package domain
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/critma/tgsheduler/internal/config"
@@ -10,20 +11,26 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-func Receiver(updates tgbotapi.UpdatesChannel, bot *tgbotapi.BotAPI, app *config.Application) {
-	c := commands.NewCommands(bot, app)
+func Receiver(updates tgbotapi.UpdatesChannel, app *config.Application) {
+	c := commands.NewCommands(app.Bot, app)
 
 	for update := range updates {
+		//TODO refactor
+		shouldSkip := handleRateLimier(update.FromChat().ID, app)
+		if shouldSkip {
+			continue
+		}
+
 		if update.Message != nil {
 			logger.AddUserInfo(&update, log.Info().Str("event", "receive message")).Send()
 			if update.Message.IsCommand() {
 				handleCommands(&update, c)
 			} else if update.Message.Text != "" {
-				HandleText(&update, c)
+				handleText(&update, c)
 			}
 
 		} else if update.CallbackQuery != nil {
-			HandleCallbacks(&update, c)
+			handleCallbacks(&update, c)
 		}
 	}
 }
@@ -51,14 +58,14 @@ func handleCommands(update *tgbotapi.Update, c *commands.CommandDeps) {
 	}
 }
 
-func HandleText(update *tgbotapi.Update, c *commands.CommandDeps) {
+func handleText(update *tgbotapi.Update, c *commands.CommandDeps) {
 	switch commands.Command(update.Message.Text) {
 	case commands.Menu_ru:
 		c.ShowInlineMenu(update)
 	}
 }
 
-func HandleCallbacks(update *tgbotapi.Update, c *commands.CommandDeps) {
+func handleCallbacks(update *tgbotapi.Update, c *commands.CommandDeps) {
 	callback := update.CallbackQuery
 	log.Info().Str("event", "receive callback").Str("user", callback.From.UserName).Int64("userID", callback.From.ID).Str("callback", callback.Data).Send()
 
@@ -87,4 +94,19 @@ func HandleCallbacks(update *tgbotapi.Update, c *commands.CommandDeps) {
 
 	cl := tgbotapi.NewCallback(callback.ID, clMessage)
 	c.Bot.Request(cl)
+}
+
+func handleRateLimier(userID int64, app *config.Application) bool {
+	if !app.Config.RatelimiterEnabled {
+		return false
+	}
+
+	allow, toUnlock := app.RateLimiter.Allow(userID)
+	if !allow {
+		log.Info().Str("event", "ratelimiter").Int64("userID", userID).Msg("rate limit exceeded")
+		app.Bot.Send(tgbotapi.NewMessage(userID, fmt.Sprintf("Лимит запросов превышен, попробуйте через %.0f секунд.", toUnlock.Seconds())))
+		return true
+	}
+
+	return false
 }

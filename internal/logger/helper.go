@@ -6,5 +6,5 @@ import (
 )
 
 func AddUserInfo(update *tgbotapi.Update, ev *zerolog.Event) *zerolog.Event {
-	return ev.Str("user", update.Message.From.UserName).Str("text", update.Message.Text).Int64("userID", update.Message.From.ID)
+	return ev.Str("user", update.FromChat().UserName).Str("text", update.Message.Text).Int64("userID", update.Message.From.ID)
 }

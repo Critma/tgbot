@@ -20,6 +20,10 @@ type Config struct {
 
 	REDIS_URL string `mapstructure:"REDIS_URL"`
 
+	RatelimiterEnabled          bool `mapstructure:"RATELIMITER_ENABLED"`
+	RatelimiterRequests         int  `mapstructure:"RATELIMITER_REQUESTS"`
+	RatelimiterTimeFrameSeconds int  `mapstructure:"RATELIMITER_TIMEFRAME_SECONDS"`
+
 	TGBOT_TOKEN string `mapstructure:"BOT_TOKEN"`
 }
 

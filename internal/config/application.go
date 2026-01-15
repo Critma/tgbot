@@ -1,6 +1,8 @@
 package config
 
 import (
+	"database/sql"
+
 	"github.com/critma/tgsheduler/internal/ratelimiter"
 	"github.com/critma/tgsheduler/internal/store"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
@@ -10,6 +12,7 @@ import (
 type Application struct {
 	Config      *Config
 	Store       store.Storage
+	Db          *sql.DB
 	Broker      *Broker
 	RateLimiter ratelimiter.Limiter
 	Bot         *tgbotapi.BotAPI

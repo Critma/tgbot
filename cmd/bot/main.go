@@ -60,19 +60,20 @@ func main() {
 	app := &config.Application{
 		Config:      cfg,
 		Store:       *postgres.NewStorage(db),
+		Db:          db,
 		Broker:      &config.Broker{Client: client, Inspector: inspector},
 		RateLimiter: rateLimiter,
 		Bot:         bot,
 	}
 
 	//workers
-	go startWorkers(cfg, bot, app)
+	go startAsynqWorkers(cfg, bot, app)
 
 	//start bot
 	domain.Receiver(updates, app)
 }
 
-func startWorkers(cfg *config.Config, bot *tgbotapi.BotAPI, app *config.Application) {
+func startAsynqWorkers(cfg *config.Config, bot *tgbotapi.BotAPI, app *config.Application) {
 	srv := asynq.NewServer(
 		asynq.RedisClientOpt{Addr: cfg.REDIS_URL},
 		asynq.Config{

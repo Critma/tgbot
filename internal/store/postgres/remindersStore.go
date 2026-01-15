@@ -13,7 +13,7 @@ type RemindersStore struct {
 	DB *sql.DB
 }
 
-func (r *RemindersStore) Create(ctx context.Context, reminder *store.Reminder) (*store.Reminder, error) {
+func (r *RemindersStore) Create(ctx context.Context, tx *sql.Tx, reminder *store.Reminder) (*store.Reminder, error) {
 	query := `
 		INSERT INTO reminders (user_id, message, scheduled_time, repeat_interval, task_id, task_queue)
 		 VALUES ($1, $2, $3, $4, $5, $6) RETURNING id
@@ -22,7 +22,7 @@ func (r *RemindersStore) Create(ctx context.Context, reminder *store.Reminder) (
 	ctx, cancel := context.WithTimeout(ctx, store.QueryTimeoutDuration)
 	defer cancel()
 
-	row := r.DB.QueryRowContext(ctx, query, reminder.UserTelegramID,
+	row := tx.QueryRowContext(ctx, query, reminder.UserTelegramID,
 		reminder.Message, reminder.SheduledTime, reminder.RepeatInterval,
 		reminder.TaskID, reminder.TaskQueue)
 	if row.Err() != nil {

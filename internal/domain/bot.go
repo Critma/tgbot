@@ -104,7 +104,7 @@ func handleRateLimier(userID int64, app *config.Application) bool {
 	allow, toUnlock := app.RateLimiter.Allow(userID)
 	if !allow {
 		log.Info().Str("event", "ratelimiter").Int64("userID", userID).Msg("rate limit exceeded")
-		app.Bot.Send(tgbotapi.NewMessage(userID, fmt.Sprintf("Лимит запросов превышен, попробуйте через %.0f секунд.", toUnlock.Seconds())))
+		app.Bot.Send(tgbotapi.NewMessage(userID, fmt.Sprintf("Достигнут лимит запросов, попробуйте через %.0f секунд.", toUnlock.Seconds())))
 		return true
 	}
 

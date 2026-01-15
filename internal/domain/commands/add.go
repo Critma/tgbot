@@ -2,6 +2,8 @@ package commands
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 	"strings"
 	"time"
 
@@ -27,64 +29,66 @@ func (c *CommandDeps) AddTask(update *tgbotapi.Update) {
 		return
 	} else if len(fields) < 4 {
 		logger.AddUserInfo(update, log.Error().Str("message", "failed to parse command").Str("command", update.Message.Text)).Send()
-		message := tgbotapi.NewMessage(chatID, "Неверный формат команды")
-		c.Bot.Send(message)
+		c.Bot.Send(tgbotapi.NewMessage(chatID, "Неверный формат команды"))
 		return
 	}
 
-	userID := update.Message.From.ID
-	user, err := c.App.Store.Users.GetByTelegramID(context.Background(), userID)
-	if user == nil {
-		logger.AddUserInfo(update, log.Error().Str("message", "failed to get user").Err(err)).Send()
-		c.Bot.Send(tgbotapi.NewMessage(chatID, "Ошибка получения информации о пользователе"))
-		return
-	}
+	//[TODO:refactor] put tx in storage funcs
+	store.WithTx(c.App.Db, context.Background(), func(tx *sql.Tx) error {
+		userID := update.Message.From.ID
+		user, err := c.App.Store.Users.GetByTelegramID(context.Background(), userID)
+		if user == nil {
+			logger.AddUserInfo(update, log.Error().Str("message", "failed to get user info").Err(err)).Send()
+			c.Bot.Send(tgbotapi.NewMessage(chatID, "Ошибка получения информации о пользователе"))
+			return err
+		}
 
-	parseLayout := `02.01.2006T15:04`
-	userTZ := time.FixedZone("User_loc", int(time.Hour.Seconds())*int(user.UTC))
-	toParse := fields[1] + "T" + fields[2]
-	t, err := time.ParseInLocation(parseLayout, toParse, userTZ)
-	if err != nil {
-		logger.AddUserInfo(update, log.Error().Str("message", "failed to parse time").Str("strToParse", toParse).Err(err)).Send()
-		message := tgbotapi.NewMessage(chatID, "Ошибка формата даты/времени")
-		c.Bot.Send(message)
-		return
-	}
+		parseLayout := `02.01.2006T15:04`
+		userTZ := time.FixedZone("User_loc", int(time.Hour.Seconds())*int(user.UTC))
+		toParse := fields[1] + "T" + fields[2]
+		t, err := time.ParseInLocation(parseLayout, toParse, userTZ)
+		if err != nil {
+			logger.AddUserInfo(update, log.Error().Str("message", "failed to parse time").Str("strToParse", toParse).Err(err)).Send()
+			c.Bot.Send(tgbotapi.NewMessage(chatID, "Ошибка формата даты/времени"))
+			return err
+		}
 
-	reminder := &store.Reminder{UserTelegramID: userID, Message: strings.Join(fields[3:], " "), SheduledTime: t}
-	result, err := c.App.Store.Reminders.Create(context.Background(), reminder)
-	if err != nil {
-		logger.AddUserInfo(update, log.Error().Str("message", "failed to create reminder").Err(err).Any("reminder", reminder).Any("user", user)).Send()
-		c.Bot.Send(tgbotapi.NewMessage(chatID, "Ошибка создания уведомления"))
-		return
-	}
+		reminder := &store.Reminder{UserTelegramID: userID, Message: strings.Join(fields[3:], " "), SheduledTime: t}
+		result, err := c.App.Store.Reminders.Create(context.Background(), tx, reminder)
+		if err != nil {
+			logger.AddUserInfo(update, log.Error().Str("message", "failed to create reminder").Err(err).Any("reminder", reminder).Any("user", user)).Send()
+			c.Bot.Send(tgbotapi.NewMessage(chatID, "Ошибка создания уведомления"))
+			return err
+		}
 
-	// broker
-	taskInfo := sendToBroker(result, userID, update, c, chatID, t)
-	if taskInfo == nil {
-		return
-	}
+		// broker
+		taskInfo := sendToBroker(result, userID, update, c, chatID, t)
+		if taskInfo == nil {
+			return errors.New("task sheduling error")
+		}
 
-	//update reminder with task id, queue
-	result.TaskID = taskInfo.ID
-	result.TaskQueue = taskInfo.Queue
-	err = c.App.Store.Reminders.Update(context.Background(), result)
-	if err != nil {
-		logger.AddUserInfo(update, log.Error().Str("message", "failed to update reminder with task_id, task_queue").Err(err).Any("reminder", reminder).Any("user", user)).Send()
-		c.App.Store.Reminders.DeleteByID(context.Background(), result.ID)
-		c.Bot.Send(tgbotapi.NewMessage(chatID, "Ошибка создания уведомления"))
-		return
-	}
+		//update reminder with task id, queue
+		result.TaskID = taskInfo.ID
+		result.TaskQueue = taskInfo.Queue
+		err = c.App.Store.Reminders.Update(context.Background(), result)
+		if err != nil {
+			logger.AddUserInfo(update, log.Error().Str("message", "failed to update reminder with task_id, task_queue").Err(err).Any("reminder", reminder).Any("user", user)).Send()
+			c.Bot.Send(tgbotapi.NewMessage(chatID, "Ошибка создания уведомления"))
+			return err
+		}
 
-	logger.AddUserInfo(update, log.Info().Str("message", "reminder created").Any("reminder", reminder)).Send()
-	c.Bot.Send(tgbotapi.NewMessage(chatID, "Уведомление создано!"))
+		logger.AddUserInfo(update, log.Info().Str("message", "reminder created").Any("reminder", reminder)).Send()
+		c.Bot.Send(tgbotapi.NewMessage(chatID, "Уведомление создано!"))
+
+		return nil
+	})
+
 }
 
 func sendToBroker(result *store.Reminder, userID int64, update *tgbotapi.Update, c *CommandDeps, chatID int64, t time.Time) *asynq.TaskInfo {
 	task, err := tasks.NewReminderDeliveryTask(result.ID, userID)
 	if err != nil {
-		logger.AddUserInfo(update, log.Info().Str("event", "send to broker").Str("message", "could not schedule task").Err(err)).Send()
-		c.App.Store.Reminders.DeleteByID(context.Background(), result.ID)
+		logger.AddUserInfo(update, log.Info().Str("event", "send to broker").Str("message", "could not create a task").Err(err)).Send()
 		c.Bot.Send(tgbotapi.NewMessage(chatID, "Ошибка создания уведомления"))
 		return nil
 	}
@@ -92,7 +96,6 @@ func sendToBroker(result *store.Reminder, userID int64, update *tgbotapi.Update,
 	info, err := c.App.Broker.Client.Enqueue(task, asynq.MaxRetry(1), asynq.ProcessAt(t))
 	if err != nil {
 		logger.AddUserInfo(update, log.Info().Str("event", "send to broker").Str("message", "could not schedule task").Err(err)).Send()
-		c.App.Store.Reminders.DeleteByID(context.Background(), result.ID)
 		c.Bot.Send(tgbotapi.NewMessage(chatID, "Ошибка создания уведомления"))
 		return nil
 	}

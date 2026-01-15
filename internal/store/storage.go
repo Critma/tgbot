@@ -19,11 +19,13 @@ type Storage struct {
 	}
 	Reminders interface {
 		Create(context.Context, *sql.Tx, *Reminder) (*Reminder, error)
-		Update(context.Context, *Reminder) error
+		Update(context.Context, *sql.Tx, *Reminder) error
 		UpdateMessage(ctx context.Context, reminderID int, message string) error
+		UpdateIsActive(ctx context.Context, reminderID int, isActive bool) error
 		GetByID(context.Context, int) (*Reminder, error)
 		GetByUserID(context.Context, int64) ([]*Reminder, error)
 		DeleteByID(context.Context, int) error
+		GetActiveByUserID(ctx context.Context, userID int64) ([]*Reminder, error)
 	}
 }
 

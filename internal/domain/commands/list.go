@@ -11,7 +11,7 @@ import (
 )
 
 func (c *CommandDeps) List(userID int64) {
-	reminders, err := c.App.Store.Reminders.GetByUserID(context.Background(), userID)
+	reminders, err := c.App.Store.Reminders.GetActiveByUserID(context.Background(), userID)
 	if err != nil {
 		log.Error().Str("message", "failed to get reminders").Err(err).Int64("userID", userID).Send()
 		c.Bot.Send(tgbotapi.NewMessage(userID, "Ошибка получения напоминаний"))

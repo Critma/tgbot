@@ -3,6 +3,7 @@ package domain
 import (
 	"fmt"
 	"strings"
+	"sync"
 
 	"github.com/critma/tgsheduler/internal/config"
 	"github.com/critma/tgsheduler/internal/domain/commands"
@@ -11,12 +12,20 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-func Receiver(updates tgbotapi.UpdatesChannel, app *config.Application) {
-	c := commands.NewCommands(app.Bot, app)
+func StartPoling(updates tgbotapi.UpdatesChannel, app *config.Application) {
+	c := commands.NewCommands(app.Bot, app, updates)
+	wg := sync.WaitGroup{}
+	for i := range app.Config.TGWorkersNum {
+		wg.Go(func() {
+			worker(c, i)
+		})
+	}
+	wg.Wait()
+}
 
-	for update := range updates {
-		//TODO refactor
-		shouldSkip := handleRateLimier(update.FromChat().ID, app)
+func worker(c *commands.CommandDeps, workerID int) {
+	for update := range c.Updates {
+		shouldSkip := handleRateLimier(update.FromChat().ID, c.App)
 		if shouldSkip {
 			continue
 		}

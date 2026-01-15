@@ -70,7 +70,7 @@ func main() {
 	go startAsynqWorkers(cfg, bot, app)
 
 	//start bot
-	domain.Receiver(updates, app)
+	domain.StartPoling(updates, app)
 }
 
 func startAsynqWorkers(cfg *config.Config, bot *tgbotapi.BotAPI, app *config.Application) {

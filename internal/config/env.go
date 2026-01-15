@@ -25,6 +25,8 @@ type Config struct {
 	RatelimiterTimeFrameSeconds int  `mapstructure:"RATELIMITER_TIMEFRAME_SECONDS"`
 
 	TGBOT_TOKEN string `mapstructure:"BOT_TOKEN"`
+
+	TGWorkersNum int `mapstructure:"NUM_WORKER_POOL"`
 }
 
 func LoadConfig() (c *Config, err error) {

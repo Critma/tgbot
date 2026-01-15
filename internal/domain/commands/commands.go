@@ -6,14 +6,16 @@ import (
 )
 
 type CommandDeps struct {
-	Bot *tgbotapi.BotAPI
-	App *config.Application
+	Bot     *tgbotapi.BotAPI
+	App     *config.Application
+	Updates tgbotapi.UpdatesChannel
 }
 
-func NewCommands(bot *tgbotapi.BotAPI, app *config.Application) *CommandDeps {
+func NewCommands(bot *tgbotapi.BotAPI, app *config.Application, updates tgbotapi.UpdatesChannel) *CommandDeps {
 	return &CommandDeps{
-		Bot: bot,
-		App: app,
+		Bot:     bot,
+		App:     app,
+		Updates: updates,
 	}
 }
 

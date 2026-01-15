@@ -70,7 +70,7 @@ func (c *CommandDeps) AddTask(update *tgbotapi.Update) {
 		//update reminder with task id, queue
 		result.TaskID = taskInfo.ID
 		result.TaskQueue = taskInfo.Queue
-		err = c.App.Store.Reminders.Update(context.Background(), result)
+		err = c.App.Store.Reminders.Update(context.Background(), tx, result)
 		if err != nil {
 			logger.AddUserInfo(update, log.Error().Str("message", "failed to update reminder with task_id, task_queue").Err(err).Any("reminder", reminder).Any("user", user)).Send()
 			c.Bot.Send(tgbotapi.NewMessage(chatID, "Ошибка создания уведомления"))

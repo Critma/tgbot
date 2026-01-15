@@ -71,5 +71,10 @@ func (p *ReminderProcessor) ProcessTask(ctx context.Context, t *asynq.Task) erro
 	p.bot.Send(msg)
 	log.Info().Str("event", "send event to tg").Int64("userID", payload.UserID).Send()
 
+	err = p.app.Store.Reminders.UpdateIsActive(context.Background(), payload.ReminderID, false)
+	if err != nil {
+		log.Warn().Str("message", "failed to set is_active = false").Int("reminderID", payload.ReminderID).Err(err).Int64("userID", payload.UserID).Send()
+	}
+
 	return nil
 }

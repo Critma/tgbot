@@ -23,6 +23,7 @@ services:
   redis:
     image: redis:8.4.0-alpine
     container_name: redis_container
+    restart: always
     ports:
       - "6379:6379"
     networks:
@@ -32,6 +33,7 @@ services:
   asynqmon:
     image: hibiken/asynqmon
     container_name: asynqmon
+    restart: always
     ports:
       - "8080:8080"
     depends_on:

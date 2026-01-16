@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/critma/tgsheduler/internal/config"
 	"github.com/critma/tgsheduler/internal/domain/commands"
@@ -53,7 +54,11 @@ func handleCommands(update *tgbotapi.Update, c *commands.CommandDeps) {
 	case commands.Menu:
 		c.ShowInlineMenu(update)
 	case commands.Add:
-		c.AddTask(update)
+		c.AddTask(update, 0)
+	case commands.AddEveryday:
+		c.AddTask(update, time.Hour*24)
+	case commands.AddEveryWeek:
+		c.AddTask(update, time.Hour*24*7)
 	case commands.Timezone:
 		c.SaveTimezone(update)
 	case commands.List:

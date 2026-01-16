@@ -32,6 +32,9 @@ const (
 	Help     Command = "help"
 
 	Menu_ru Command = "🟢Меню🟢"
+
+	AddEveryday  Command = "addd"
+	AddEveryWeek Command = "addw"
 )
 
 type Callback string

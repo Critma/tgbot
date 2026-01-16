@@ -22,8 +22,9 @@ func (r *RemindersStore) Create(ctx context.Context, tx *sql.Tx, reminder *store
 	ctx, cancel := context.WithTimeout(ctx, store.QueryTimeoutDuration)
 	defer cancel()
 
+	interval := (*pqinterval.Duration)(&reminder.RepeatInterval)
 	row := tx.QueryRowContext(ctx, query, reminder.UserTelegramID,
-		reminder.Message, reminder.SheduledTime, reminder.RepeatInterval,
+		reminder.Message, reminder.SheduledTime, interval,
 		reminder.TaskID, reminder.TaskQueue)
 	if row.Err() != nil {
 		return nil, row.Err()
@@ -45,7 +46,8 @@ func (r *RemindersStore) Update(ctx context.Context, tx *sql.Tx, reminder *store
 	ctx, cancel := context.WithTimeout(ctx, store.QueryTimeoutDuration)
 	defer cancel()
 
-	result, err := tx.ExecContext(ctx, query, reminder.Message, reminder.SheduledTime, reminder.RepeatInterval, reminder.IsActive, reminder.TaskID, reminder.TaskQueue, reminder.ID)
+	interval := (*pqinterval.Duration)(&reminder.RepeatInterval)
+	result, err := tx.ExecContext(ctx, query, reminder.Message, reminder.SheduledTime, interval, reminder.IsActive, reminder.TaskID, reminder.TaskQueue, reminder.ID)
 	if err != nil {
 		return err
 	}

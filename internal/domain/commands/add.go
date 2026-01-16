@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"strings"
 	"time"
 
@@ -16,12 +17,15 @@ import (
 )
 
 func (c *CommandDeps) ShowAddTooltip(userID int64) {
-	message := "Введите напоминание в формате команды:\n/add {дата} {время} {событие}\nНапример:\n /add 31.12.2026 18:00 Купить билеты"
+	message := `Введите напоминание в формате команды:
+/add {дата} {время} {событие}
+Например: /add 31.12.2026 18:00 Купить билеты
+Вариации: ` + fmt.Sprintf("/%s - повторять ежедневно, /%s - еженедельно", AddEveryday, AddEveryWeek)
 	msg := tgbotapi.NewMessage(userID, message)
 	c.Bot.Send(msg)
 }
 
-func (c *CommandDeps) AddTask(update *tgbotapi.Update) {
+func (c *CommandDeps) AddTask(update *tgbotapi.Update, interval time.Duration) {
 	fields := strings.Fields(update.Message.Text)
 	chatID := update.Message.Chat.ID
 	if len(fields) == 1 {
@@ -53,7 +57,7 @@ func (c *CommandDeps) AddTask(update *tgbotapi.Update) {
 			return err
 		}
 
-		reminder := &store.Reminder{UserTelegramID: userID, Message: strings.Join(fields[3:], " "), SheduledTime: t}
+		reminder := &store.Reminder{UserTelegramID: userID, Message: strings.Join(fields[3:], " "), SheduledTime: t, RepeatInterval: interval}
 		result, err := c.App.Store.Reminders.Create(context.Background(), tx, reminder)
 		if err != nil {
 			logger.AddUserInfo(update, log.Error().Str("message", "failed to create reminder").Err(err).Any("reminder", reminder).Any("user", user)).Send()
@@ -88,14 +92,14 @@ func (c *CommandDeps) AddTask(update *tgbotapi.Update) {
 func sendToBroker(result *store.Reminder, userID int64, update *tgbotapi.Update, c *CommandDeps, chatID int64, t time.Time) *asynq.TaskInfo {
 	task, err := tasks.NewReminderDeliveryTask(result.ID, userID)
 	if err != nil {
-		logger.AddUserInfo(update, log.Info().Str("event", "send to broker").Str("message", "could not create a task").Err(err)).Send()
+		logger.AddUserInfo(update, log.Error().Str("event", "send to broker").Str("message", "could not create a task").Err(err)).Send()
 		c.Bot.Send(tgbotapi.NewMessage(chatID, "Ошибка создания уведомления"))
 		return nil
 	}
 
 	info, err := c.App.Broker.Client.Enqueue(task, asynq.MaxRetry(1), asynq.ProcessAt(t))
 	if err != nil {
-		logger.AddUserInfo(update, log.Info().Str("event", "send to broker").Str("message", "could not schedule task").Err(err)).Send()
+		logger.AddUserInfo(update, log.Error().Str("event", "send to broker").Str("message", "could not schedule task").Err(err)).Send()
 		c.Bot.Send(tgbotapi.NewMessage(chatID, "Ошибка создания уведомления"))
 		return nil
 	}

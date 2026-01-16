@@ -7,6 +7,7 @@ import (
 
 	"github.com/critma/tgsheduler/internal/config"
 	"github.com/critma/tgsheduler/internal/domain/helpers"
+	"github.com/critma/tgsheduler/internal/store"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"github.com/hibiken/asynq"
 	"github.com/rs/zerolog/log"
@@ -67,14 +68,42 @@ func (p *ReminderProcessor) ProcessTask(ctx context.Context, t *asynq.Task) erro
 	}
 
 	reminder.SheduledTime = helpers.TimeToUserTZ(user, reminder.SheduledTime)
-	msg := tgbotapi.NewMessage(payload.UserID, fmt.Sprintf("❗Уведомление❗\n[%s] - %s", reminder.SheduledTime.Format("02.01.2006 15:04"), reminder.Message))
-	p.bot.Send(msg)
+	var msg string
+	if reminder.RepeatInterval.Hours() == 24 {
+		msg = fmt.Sprintf("❗Уведомление❗\n[ежедневно %s] - %s", reminder.SheduledTime.Format("15:04"), reminder.Message)
+	} else if reminder.RepeatInterval.Hours() == 24*7 {
+		msg = fmt.Sprintf("❗Уведомление❗\n[еженедельно %s] - %s", reminder.SheduledTime.Format("15:04"), reminder.Message)
+	} else {
+		msg = fmt.Sprintf("❗Уведомление❗\n[%s] - %s", reminder.SheduledTime.Format("02.01.2006 15:04"), reminder.Message)
+	}
+	p.bot.Send(tgbotapi.NewMessage(payload.UserID, msg))
 	log.Info().Str("event", "send event to tg").Int64("userID", payload.UserID).Send()
 
-	err = p.app.Store.Reminders.UpdateIsActive(context.Background(), payload.ReminderID, false)
-	if err != nil {
-		log.Warn().Str("message", "failed to set is_active = false").Int("reminderID", payload.ReminderID).Err(err).Int64("userID", payload.UserID).Send()
+	if reminder.RepeatInterval.Hours() >= 24 {
+		err := p.reEnqueueTask(reminder, payload.UserID)
+		return err
+	} else {
+		err = p.app.Store.Reminders.UpdateIsActive(context.Background(), payload.ReminderID, false)
+		if err != nil {
+			log.Warn().Str("message", "failed to set is_active = false").Int("reminderID", payload.ReminderID).Err(err).Int64("userID", payload.UserID).Send()
+		}
 	}
 
+	return nil
+}
+
+func (p *ReminderProcessor) reEnqueueTask(reminder *store.Reminder, userID int64) error {
+	task, err := NewReminderDeliveryTask(reminder.ID, userID)
+	if err != nil {
+		log.Error().Str("event", "re send to broker").Str("message", "could not create a task").Err(err).Send()
+		return err
+	}
+
+	info, err := p.app.Broker.Client.Enqueue(task, asynq.MaxRetry(1), asynq.ProcessAt(reminder.SheduledTime.Add(reminder.RepeatInterval)), asynq.Queue(reminder.TaskQueue))
+	if err != nil {
+		log.Error().Str("event", "re send to broker").Str("message", "could not re send a task").Err(err).Send()
+		return err
+	}
+	log.Info().Str("event", "re sheduled task").Str("taskID", info.ID).Str("queue", info.Queue).Send()
 	return nil
 }

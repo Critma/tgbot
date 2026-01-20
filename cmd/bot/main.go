@@ -2,10 +2,14 @@ package main
 
 import (
 	"flag"
+	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/critma/tgsheduler/internal/config"
 	"github.com/critma/tgsheduler/internal/domain"
+	"github.com/critma/tgsheduler/internal/metrics"
 	"github.com/critma/tgsheduler/internal/ratelimiter"
 	"github.com/critma/tgsheduler/internal/store/postgres"
 	"github.com/critma/tgsheduler/internal/tasks"
@@ -66,28 +70,21 @@ func main() {
 		Bot:         bot,
 	}
 
-	//workers
-	go startAsynqWorkers(cfg, bot, app)
+	quitChan := make(chan os.Signal, 1)
+	signal.Notify(quitChan, syscall.SIGTERM, syscall.SIGINT)
 
-	//start bot
-	domain.StartPoling(updates, app)
-}
+	// asynq workers
+	go tasks.StartAsynqWorkers(bot, app)
 
-func startAsynqWorkers(cfg *config.Config, bot *tgbotapi.BotAPI, app *config.Application) {
-	srv := asynq.NewServer(
-		asynq.RedisClientOpt{Addr: cfg.REDIS_URL},
-		asynq.Config{
-			Concurrency: 5,
-			Queues: map[string]int{
-				"critical": 6,
-				"default":  3,
-				"low":      1,
-			},
-		},
-	)
-	mux := asynq.NewServeMux()
-	mux.Handle(tasks.TypeReminderDelivery, tasks.NewReminderProcessor(bot, app))
-	if err := srv.Run(mux); err != nil {
-		log.Fatal().Msgf("could not run workers-server: %v", err)
-	}
+	// metrics
+	go func() {
+		log.Info().Msg("Start metrics server on " + cfg.MetricsAddr)
+		err := metrics.Listen(cfg.MetricsAddr)
+		if err != nil {
+			log.Error().Str("event", "start metrics server").Str("message", "server not started").Err(err).Send()
+		}
+	}()
+
+	// start bot
+	domain.StartPoling(updates, app, quitChan)
 }

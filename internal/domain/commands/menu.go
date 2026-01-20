@@ -4,7 +4,7 @@ import (
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
 
-func (c *CommandDeps) ShowInlineMenu(update *tgbotapi.Update) {
+func (c *CommandDeps) ShowInlineMenu(update *tgbotapi.Update) error {
 	message := `Привет, это бот для отложенных уведомлений`
 	keyboard := tgbotapi.NewInlineKeyboardMarkup(
 		tgbotapi.NewInlineKeyboardRow(
@@ -17,7 +17,8 @@ func (c *CommandDeps) ShowInlineMenu(update *tgbotapi.Update) {
 	)
 	msg := tgbotapi.NewMessage(update.Message.Chat.ID, message)
 	msg.ReplyMarkup = keyboard
-	c.Bot.Send(msg)
+	_, err := c.Bot.Send(msg)
+	return err
 }
 
 func (c *CommandDeps) GetKeyboardMenu() tgbotapi.ReplyKeyboardMarkup {

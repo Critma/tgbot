@@ -4,7 +4,7 @@ services:
     image: postgres:18.1-alpine3.23
     volumes:
       - pdata:/var/lib/postgresql/data
-      - ./scripts/postgres:/docker-entrypoint-initdb.d
+      # - ./postgres:/docker-entrypoint-initdb.d
     restart: always
     container_name: pg_container
     environment:
@@ -41,6 +41,13 @@ services:
     networks:
       - dev-network
     command: --redis-addr=redis:${REDIS_PORT}
+  
+  prometheus:
+    image: prom/prometheus:latest
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+    ports:
+      - "19090:9090"
 
 networks:
   dev-network:

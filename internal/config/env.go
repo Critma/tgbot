@@ -24,6 +24,8 @@ type Config struct {
 	RatelimiterRequests         int  `mapstructure:"RATELIMITER_REQUESTS"`
 	RatelimiterTimeFrameSeconds int  `mapstructure:"RATELIMITER_TIMEFRAME_SECONDS"`
 
+	MetricsAddr string `mapstructure:"METRICS_ADDR"`
+
 	TGBOT_TOKEN string `mapstructure:"BOT_TOKEN"`
 
 	TGWorkersNum int `mapstructure:"NUM_WORKER_POOL"`

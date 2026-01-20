@@ -1,16 +1,24 @@
 ENV_PATH=./configs/.env
-COMPOSE_PATH=build/package/docker-compose.yml
-MIGRATIONS_PATH=cmd/migrate/migrations
 include $(ENV_PATH)
+COMPOSE_PATH=deploy/docker-compose.yml
+MIGRATIONS_PATH=cmd/migrate/migrations
+CMD_PATH=cmd/bot/main.go
+CMD=build/main
 
 compose-up:
 	docker-compose -f $(COMPOSE_PATH) --env-file $(ENV_PATH) up -d
 
 # run --
-run-debug:
-	go run cmd/bot/main.go -debug
+build-release:
+	go build -o $(CMD) $(CMD_PATH)
 
-run-migrate:
+run: build-release
+	./$(CMD)
+
+run-debug:
+	go run $(CMD_PATH) -debug
+
+run-ping:
 	go run cmd/migrate/main.go
 
 # --

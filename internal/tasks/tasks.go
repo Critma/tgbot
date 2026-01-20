@@ -2,8 +2,10 @@ package tasks
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"fmt"
+	"time"
 
 	"github.com/critma/tgsheduler/internal/config"
 	"github.com/critma/tgsheduler/internal/domain/helpers"
@@ -77,7 +79,7 @@ func (p *ReminderProcessor) ProcessTask(ctx context.Context, t *asynq.Task) erro
 		msg = fmt.Sprintf("❗Уведомление❗\n[%s] - %s", reminder.SheduledTime.Format("02.01.2006 15:04"), reminder.Message)
 	}
 	p.bot.Send(tgbotapi.NewMessage(payload.UserID, msg))
-	log.Info().Str("event", "send event to tg").Int64("userID", payload.UserID).Send()
+	log.Info().Str("event", "send event to tg").Int("reminderID", reminder.ID).Int64("userID", payload.UserID).Send()
 
 	if reminder.RepeatInterval.Hours() >= 24 {
 		err := p.reEnqueueTask(reminder, payload.UserID)
@@ -99,11 +101,38 @@ func (p *ReminderProcessor) reEnqueueTask(reminder *store.Reminder, userID int64
 		return err
 	}
 
-	info, err := p.app.Broker.Client.Enqueue(task, asynq.MaxRetry(1), asynq.ProcessAt(reminder.SheduledTime.Add(reminder.RepeatInterval)), asynq.Queue(reminder.TaskQueue))
-	if err != nil {
-		log.Error().Str("event", "re send to broker").Str("message", "could not re send a task").Err(err).Send()
-		return err
+	return store.WithTx(p.app.Db, context.Background(), func(tx *sql.Tx) error {
+		reminder.SheduledTime = getRightTime(reminder.SheduledTime, reminder.RepeatInterval)
+		if err := p.app.Store.Reminders.Update(context.Background(), tx, reminder); err != nil {
+			log.Error().Str("event", "update reminder with new sheduled time").Str("message", "could not update the reminder").Err(err).Send()
+			return err
+		}
+
+		info, err := p.app.Broker.Client.Enqueue(task, asynq.MaxRetry(1), asynq.ProcessAt(reminder.SheduledTime), asynq.Queue(reminder.TaskQueue))
+		if err != nil {
+			log.Error().Str("event", "re send to broker").Str("message", "could not re send a task").Err(err).Send()
+			return err
+		}
+
+		reminder.TaskID = info.ID
+		reminder.TaskQueue = info.Queue
+		if err := p.app.Store.Reminders.Update(context.Background(), tx, reminder); err != nil {
+			log.Error().Str("event", "update reminder with new task_info").Str("message", "could not update the reminder").Err(err).Send()
+			//TODO:delete task from redis
+			return err
+		}
+
+		log.Info().Str("event", "re sheduled task").Str("taskID", info.ID).Str("queue", info.Queue).Send()
+		return nil
+	})
+}
+
+func getRightTime(oldTime time.Time, repeatInterval time.Duration) time.Time {
+	today := time.Now()
+	updatedTime := time.Date(today.Year(), today.Month(), today.Day(), oldTime.Hour(), oldTime.Minute(), oldTime.Second(), oldTime.Nanosecond(), oldTime.Location())
+
+	for updatedTime.Before(today) {
+		updatedTime = updatedTime.Add(repeatInterval)
 	}
-	log.Info().Str("event", "re sheduled task").Str("taskID", info.ID).Str("queue", info.Queue).Send()
-	return nil
+	return updatedTime
 }

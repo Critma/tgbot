@@ -16,29 +16,30 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-func (c *CommandDeps) ShowAddTooltip(userID int64) {
+func (c *CommandDeps) ShowAddTooltip(userID int64) error {
 	message := `Введите напоминание в формате команды:
 /add {дата} {время} {событие}
 Например: /add 31.12.2026 18:00 Купить билеты
 Вариации: ` + fmt.Sprintf("/%s - повторять ежедневно, /%s - еженедельно", AddEveryday, AddEveryWeek)
 	msg := tgbotapi.NewMessage(userID, message)
-	c.Bot.Send(msg)
+	_, err := c.Bot.Send(msg)
+	return err
 }
 
-func (c *CommandDeps) AddTask(update *tgbotapi.Update, interval time.Duration) {
+func (c *CommandDeps) AddTask(update *tgbotapi.Update, interval time.Duration) error {
 	fields := strings.Fields(update.Message.Text)
 	chatID := update.Message.Chat.ID
 	if len(fields) == 1 {
 		c.ShowAddTooltip(update.Message.From.ID)
-		return
+		return nil
 	} else if len(fields) < 4 {
 		logger.AddUserInfo(update, log.Error().Str("message", "failed to parse command").Str("command", update.Message.Text)).Send()
 		c.Bot.Send(tgbotapi.NewMessage(chatID, "Неверный формат команды"))
-		return
+		return errors.New("неверный формат команды")
 	}
 
 	//[TODO:refactor] put tx in storage funcs
-	store.WithTx(c.App.Db, context.Background(), func(tx *sql.Tx) error {
+	return store.WithTx(c.App.Db, context.Background(), func(tx *sql.Tx) error {
 		userID := update.Message.From.ID
 		user, err := c.App.Store.Users.GetByTelegramID(context.Background(), userID)
 		if user == nil {
@@ -78,6 +79,7 @@ func (c *CommandDeps) AddTask(update *tgbotapi.Update, interval time.Duration) {
 		if err != nil {
 			logger.AddUserInfo(update, log.Error().Str("message", "failed to update reminder with task_id, task_queue").Err(err).Any("reminder", reminder).Any("user", user)).Send()
 			c.Bot.Send(tgbotapi.NewMessage(chatID, "Ошибка создания уведомления"))
+			//TODO:delete task from redis
 			return err
 		}
 
@@ -86,7 +88,6 @@ func (c *CommandDeps) AddTask(update *tgbotapi.Update, interval time.Duration) {
 
 		return nil
 	})
-
 }
 
 func sendToBroker(result *store.Reminder, userID int64, update *tgbotapi.Update, c *CommandDeps, chatID int64, t time.Time) *asynq.TaskInfo {

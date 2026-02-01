@@ -2,6 +2,7 @@ package commands
 
 import (
 	"context"
+	"errors"
 	"strconv"
 	"strings"
 
@@ -10,27 +11,27 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-func (c *CommandDeps) ShowEditTooltip(userID int64) {
+func (c *CommandDeps) ShowEditTooltip(userID int64) error {
 	message := "Введите изменения в формате команды:\n/edit {идентификатор} {новое название}\nНапример:\n /edit 2 Собрание"
 	msg := tgbotapi.NewMessage(userID, message)
-	c.Bot.Send(msg)
+	_, err := c.Bot.Send(msg)
+	return err
 }
 
-func (c *CommandDeps) EditTask(update *tgbotapi.Update) {
+func (c *CommandDeps) EditTask(update *tgbotapi.Update) error {
 	fields := strings.Fields(update.Message.Text)
 	chatID := update.Message.Chat.ID
 	if len(fields) < 3 {
 		logger.AddUserInfo(update, log.Error().Str("message", "failed to parse command").Str("command", update.Message.Text)).Send()
-		message := tgbotapi.NewMessage(chatID, "Неверный формат команды")
-		c.Bot.Send(message)
-		return
+		c.Bot.Send(tgbotapi.NewMessage(chatID, "Неверный формат команды"))
+		return errors.New("неверный формат команды")
 	}
 
 	reminderID, err := strconv.ParseInt(fields[1], 10, 32)
 	if err != nil {
 		logger.AddUserInfo(update, log.Error().Str("message", "failed to parse reminderID").Str("reminderToParse", fields[1]).Err(err)).Send()
-		message := tgbotapi.NewMessage(chatID, "Ошибка формата команды")
-		c.Bot.Send(message)
+		c.Bot.Send(tgbotapi.NewMessage(chatID, "Ошибка формата команды"))
+		return errors.New("неверный формат команды")
 	}
 
 	newMessage := strings.Join(fields[2:], " ")
@@ -38,9 +39,10 @@ func (c *CommandDeps) EditTask(update *tgbotapi.Update) {
 	if err != nil {
 		logger.AddUserInfo(update, log.Error().Str("message", "failed to update message in reminder").Err(err)).Send()
 		c.Bot.Send(tgbotapi.NewMessage(chatID, "Ошибка изменения уведомления"))
-		return
+		return errors.New("Ошибка изменения уведомления")
 	}
 
 	logger.AddUserInfo(update, log.Info().Str("message", "reminder updated").Str("newMessage", newMessage)).Send()
-	c.Bot.Send(tgbotapi.NewMessage(chatID, "Изменения сохранены!"))
+	_, err = c.Bot.Send(tgbotapi.NewMessage(chatID, "Изменения сохранены!"))
+	return err
 }

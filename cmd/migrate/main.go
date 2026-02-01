@@ -8,6 +8,7 @@ import (
 	_ "github.com/lib/pq"
 )
 
+// check db connection
 func main() {
 	config, err := config.LoadConfig()
 	if err != nil {

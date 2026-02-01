@@ -1,16 +1,27 @@
 ENV_PATH=./configs/.env
-COMPOSE_PATH=build/package/docker-compose.yml
-MIGRATIONS_PATH=cmd/migrate/migrations
 include $(ENV_PATH)
+COMPOSE_PATH=deploy/docker-compose.yml
+MIGRATIONS_PATH=cmd/migrate/migrations
+CMD_PATH=cmd/bot/main.go
+CMD=build/main
+TEST_DIR=build/test
+COV_PATH=$(TEST_DIR)/coverage.out
+COV_HTML_PATH=$(TEST_DIR)/index.html
 
 compose-up:
 	docker-compose -f $(COMPOSE_PATH) --env-file $(ENV_PATH) up -d
 
-# run --
-run-debug:
-	go run cmd/bot/main.go -debug
+# run local--
+build:
+	go build -o $(CMD) $(CMD_PATH)
 
-run-migrate:
+run: build
+	./$(CMD)
+
+run-debug:
+	go run $(CMD_PATH) -debug
+
+run-ping:
 	go run cmd/migrate/main.go
 
 # --
@@ -30,8 +41,22 @@ migrate-down:
 
 migrate-reset:
 	migrate -path=$(MIGRATIONS_PATH) -database $(POSTGRES_URL) -verbose down
+	
+install-deps:
+	go install -tags 'postgres' github.com/golang-migrate/migrate/v4/cmd/migrate@latest 
 
 # --
 
-install-deps:
-	go install -tags 'postgres' github.com/golang-migrate/migrate/v4/cmd/migrate@latest 
+# test --
+test:
+	@mkdir -p $(TEST_DIR)
+	@go test -v ./... -coverprofile=$(COV_PATH)
+	@go tool cover -html $(COV_PATH) -o $(COV_HTML_PATH)
+	@firefox $(COV_HTML_PATH) || google-chrome $(COV_HTML_PATH) || echo "\nOpen $(COV_HTML_PATH) to see coverage info..."
+
+# --
+
+clean :
+	rm -rf $(CMD) $(TEST_DIR)
+
+.PHONY: run clean build

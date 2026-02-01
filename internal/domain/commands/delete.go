@@ -2,6 +2,7 @@ package commands
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -11,19 +12,19 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-func (c *CommandDeps) ShowDeleteList(userID int64) {
+func (c *CommandDeps) ShowDeleteList(userID int64) error {
 	reminders, err := c.App.Store.Reminders.GetByUserID(context.Background(), userID)
 	if err != nil {
 		log.Error().Str("message", "failed to get reminders").Err(err).Int64("userID", userID).Send()
 		c.Bot.Send(tgbotapi.NewMessage(userID, "Ошибка получения напоминаний"))
-		return
+		return errors.New("ошибка получения напоминаний")
 	}
 
 	buttons := make([][]tgbotapi.InlineKeyboardButton, len(reminders))
 	for i, rem := range reminders {
 		msg := fmt.Sprintf("%s %d", DeleteItemCallback, rem.ID)
 		btn := tgbotapi.InlineKeyboardButton{
-			Text:         fmt.Sprintf("❌ Удалить '%s'", rem.Message),
+			Text:         fmt.Sprintf("❌ Удалить %v: %s\t❌", i+1, rem.Message),
 			CallbackData: &msg,
 		}
 		buttons[i] = []tgbotapi.InlineKeyboardButton{btn}
@@ -40,11 +41,16 @@ func (c *CommandDeps) ShowDeleteList(userID int64) {
 		if err != nil {
 			log.Error().Str("message", "failed to get user timezone").Err(err).Int64("userID", userID).Send()
 			c.Bot.Send(tgbotapi.NewMessage(userID, "Ошибка получения информации о часовом поясе пользователя"))
+			return errors.New("ошибка получения информации о часовом поясе пользователя")
 		}
 		sb.WriteString("Список ваших напоминаний:")
 		for i, rem := range reminders {
+			active := "❗"
+			if !rem.IsActive {
+				active = "✅"
+			}
 			rem.SheduledTime = helpers.TimeToUserTZ(user, rem.SheduledTime)
-			fmt.Fprintf(sb, "\n%d. %s (%v)", i+1, rem.Message, rem.SheduledTime.Format("02.01.2006 15:04"))
+			fmt.Fprintf(sb, "\n%s %d. %s (%v)", active, i+1, rem.Message, rem.SheduledTime.Format("02.01.2006 15:04"))
 		}
 	}
 
@@ -53,23 +59,25 @@ func (c *CommandDeps) ShowDeleteList(userID int64) {
 	_, err = c.Bot.Send(msg)
 	if err != nil {
 		log.Error().Str("message", "failed to send listToDelete").Err(err).Int64("userID", userID).Send()
+		return err
 	}
+	return nil
 }
 
-func (c *CommandDeps) DeleteReminder(update *tgbotapi.Update) {
+func (c *CommandDeps) DeleteReminder(update *tgbotapi.Update) error {
 	fields := strings.Fields(update.CallbackQuery.Data)
 
 	if len(fields) != 2 {
 		log.Error().Str("message", "failed format delete callback").Any("fields", fields).Int64("userID", update.CallbackQuery.From.ID).Send()
 		c.Bot.Send(tgbotapi.NewMessage(update.CallbackQuery.From.ID, "Ошибка удаления напоминания"))
-		return
+		return errors.New("ошибка удаления напоминания")
 	}
 
 	reminderID, err := strconv.ParseInt(fields[1], 10, 32)
 	if err != nil {
 		log.Error().Str("message", "failed to parse format delete callback").Any("Parsenumber", fields[1]).Err(err).Int64("userID", update.CallbackQuery.From.ID).Send()
 		c.Bot.Send(tgbotapi.NewMessage(update.CallbackQuery.From.ID, "Ошибка форматы команды"))
-		return
+		return errors.New("ошибка формата команды")
 	}
 
 	deleteFromBroker(c, reminderID, update)
@@ -78,10 +86,11 @@ func (c *CommandDeps) DeleteReminder(update *tgbotapi.Update) {
 	if err != nil {
 		log.Error().Str("message", "failed to delete reminder").Int64("reminderID", reminderID).Err(err).Int64("userID", update.CallbackQuery.From.ID).Send()
 		c.Bot.Send(tgbotapi.NewMessage(update.CallbackQuery.From.ID, "Ошибка удаления напоминания"))
-		return
+		return errors.New("ошибка удаления напоминания")
 	}
 	log.Info().Str("message", "delete reminder").Int64("reminderId", reminderID).Send()
-	c.Bot.Send(tgbotapi.NewMessage(update.CallbackQuery.From.ID, "Удаление успешно!"))
+	_, err = c.Bot.Send(tgbotapi.NewMessage(update.CallbackQuery.From.ID, "Удаление успешно!"))
+	return err
 }
 
 func deleteFromBroker(c *CommandDeps, reminderID int64, update *tgbotapi.Update) {

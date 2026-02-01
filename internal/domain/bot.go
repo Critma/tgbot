@@ -2,6 +2,7 @@ package domain
 
 import (
 	"fmt"
+	"os"
 	"strings"
 	"sync"
 	"time"
@@ -13,101 +14,138 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-func StartPoling(updates tgbotapi.UpdatesChannel, app *config.Application) {
-	c := commands.NewCommands(app.Bot, app, updates)
+func StartPoling(updates tgbotapi.UpdatesChannel, app *config.Application, quitChan <-chan os.Signal) {
+	workerChan := make(chan tgbotapi.Update)
+
+	c := commands.NewCommands(app.Bot, app)
 	wg := sync.WaitGroup{}
 	for i := range app.Config.TGWorkersNum {
 		wg.Go(func() {
-			worker(c, i)
+			worker(c, workerChan, i)
 		})
 	}
+
+	go func() {
+		for update := range updates {
+			workerChan <- update
+		}
+		shutdown(workerChan)
+	}()
+
+	go func() {
+		<-quitChan
+		log.Info().Msg("Shutdown bot...")
+		time.Sleep(2 * time.Second)
+		shutdown(workerChan)
+	}()
+
 	wg.Wait()
 }
 
-func worker(c *commands.CommandDeps, workerID int) {
-	for update := range c.Updates {
+func shutdown(workerChan chan tgbotapi.Update) {
+	close(workerChan)
+}
+
+func worker(c *commands.CommandDeps, workerChan <-chan tgbotapi.Update, workerID int) {
+	for update := range workerChan {
+		start := time.Now()
+
 		shouldSkip := handleRateLimier(update.FromChat().ID, c.App)
 		if shouldSkip {
+			observeRequest(time.Since(start), Skip, "", Skipped)
 			continue
 		}
 
 		if update.Message != nil {
 			logger.AddUserInfo(&update, log.Info().Str("event", "receive message")).Send()
 			if update.Message.IsCommand() {
-				handleCommands(&update, c)
+				if err := handleCommands(&update, c); err != nil {
+					observeRequest(time.Since(start), Command, update.Message.Command(), Failed)
+				} else {
+					observeRequest(time.Since(start), Command, update.Message.Command(), Success)
+				}
 			} else if update.Message.Text != "" {
-				handleText(&update, c)
+				if err := handleText(&update, c); err != nil {
+					observeRequest(time.Since(start), Text, update.Message.Text, Failed)
+				} else {
+					observeRequest(time.Since(start), Text, update.Message.Text, Success)
+				}
 			}
 
 		} else if update.CallbackQuery != nil {
-			handleCallbacks(&update, c)
+			if err := handleCallbacks(&update, c); err != nil {
+				observeRequest(time.Since(start), Callback, update.CallbackQuery.Data, Failed)
+			} else {
+				observeRequest(time.Since(start), Callback, update.CallbackQuery.Data, Success)
+			}
 		}
 	}
 }
 
-func handleCommands(update *tgbotapi.Update, c *commands.CommandDeps) {
+func handleCommands(update *tgbotapi.Update, c *commands.CommandDeps) (err error) {
 	switch commands.Command(update.Message.Command()) {
 	case commands.Start:
-		c.CreateUser(update.Message.From.ID)
-		c.ShowInlineMenu(update)
-		c.ShowTimezoneTooltip(update)
+		err = c.Start(update)
 	case commands.Menu:
-		c.ShowInlineMenu(update)
+		err = c.ShowInlineMenu(update)
 	case commands.Add:
-		c.AddTask(update, 0)
+		err = c.AddTask(update, 0)
 	case commands.AddEveryday:
-		c.AddTask(update, time.Hour*24)
+		err = c.AddTask(update, time.Hour*24)
 	case commands.AddEveryWeek:
-		c.AddTask(update, time.Hour*24*7)
+		err = c.AddTask(update, time.Hour*24*7)
 	case commands.Timezone:
-		c.SaveTimezone(update)
+		err = c.SaveTimezone(update)
 	case commands.List:
-		c.List(update.Message.From.ID)
+		err = c.List(update.Message.From.ID)
 	case commands.Edit:
-		c.EditTask(update)
+		err = c.EditTask(update)
 	case commands.Delete:
-		c.ShowDeleteList(update.Message.From.ID)
+		err = c.ShowDeleteList(update.Message.From.ID)
 	case commands.Help:
-		c.HandleHelp(update)
+		err = c.HandleHelp(update)
 	}
+	return
 }
 
-func handleText(update *tgbotapi.Update, c *commands.CommandDeps) {
+func handleText(update *tgbotapi.Update, c *commands.CommandDeps) (err error) {
 	switch commands.Command(update.Message.Text) {
 	case commands.Menu_ru:
-		c.ShowInlineMenu(update)
+		err = c.ShowInlineMenu(update)
 	}
+	return
 }
 
-func handleCallbacks(update *tgbotapi.Update, c *commands.CommandDeps) {
+func handleCallbacks(update *tgbotapi.Update, c *commands.CommandDeps) (err error) {
 	callback := update.CallbackQuery
 	log.Info().Str("event", "receive callback").Str("user", callback.From.UserName).Int64("userID", callback.From.ID).Str("callback", callback.Data).Send()
 
 	clMessage := ""
 	switch commands.Callback(callback.Data) {
 	case commands.AddCallback:
-		c.ShowAddTooltip(callback.From.ID)
+		err = c.ShowAddTooltip(callback.From.ID)
 		clMessage = "Добавить уведомление"
 	case commands.EditCallback:
-		c.ShowEditTooltip(callback.From.ID)
+		err = c.ShowEditTooltip(callback.From.ID)
 		clMessage = "Редактировать уведомление"
 	case commands.DeleteCallback:
-		c.ShowDeleteList(update.CallbackQuery.From.ID)
+		err = c.ShowDeleteList(update.CallbackQuery.From.ID)
 		clMessage = "Показать список для удаления"
 	case commands.TimezoneCallback:
-		c.ShowUserTimezone(update.CallbackQuery.From.ID)
+		err = c.ShowUserTimezone(update.CallbackQuery.From.ID)
 		clMessage = "Показать UTC"
 	case commands.ListCallback:
-		c.List(callback.From.ID)
+		err = c.List(callback.From.ID)
 		clMessage = "Показать список уведомлений"
 	}
 	if strings.HasPrefix(callback.Data, string(commands.DeleteItemCallback)) {
-		c.DeleteReminder(update)
+		err = c.DeleteReminder(update)
 		clMessage = "Удалить уведомление"
 	}
 
 	cl := tgbotapi.NewCallback(callback.ID, clMessage)
-	c.Bot.Request(cl)
+	_, err = c.Bot.Request(cl)
+	return err
 }
 
 func handleRateLimier(userID int64, app *config.Application) bool {

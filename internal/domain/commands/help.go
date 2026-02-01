@@ -4,7 +4,7 @@ import (
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
 
-func (c *CommandDeps) HandleHelp(update *tgbotapi.Update) {
+func (c *CommandDeps) HandleHelp(update *tgbotapi.Update) error {
 	message := `Commands:
 	/` + string(Add) + ` {dd.mm.yyyy} {hh:mm} {event} - добавить уведомление
 	/` + string(List) + ` - показать ваш список уведомлений
@@ -16,5 +16,6 @@ func (c *CommandDeps) HandleHelp(update *tgbotapi.Update) {
 	`
 
 	msg := tgbotapi.NewMessage(update.Message.Chat.ID, message)
-	c.Bot.Send(msg)
+	_, err := c.Bot.Send(msg)
+	return err
 }

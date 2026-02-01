@@ -24,6 +24,8 @@ type Config struct {
 	RatelimiterRequests         int  `mapstructure:"RATELIMITER_REQUESTS"`
 	RatelimiterTimeFrameSeconds int  `mapstructure:"RATELIMITER_TIMEFRAME_SECONDS"`
 
+	MetricsAddr string `mapstructure:"METRICS_ADDR"` // default :9091
+
 	TGBOT_TOKEN string `mapstructure:"BOT_TOKEN"`
 
 	TGWorkersNum int `mapstructure:"NUM_WORKER_POOL"`
@@ -31,6 +33,7 @@ type Config struct {
 
 func LoadConfig() (c *Config, err error) {
 	viper.AddConfigPath(ENV_PATH)
+	viper.AddConfigPath("./")
 	viper.AddConfigPath("../../configs")
 	viper.SetConfigName(".env")
 	viper.SetConfigType("env")

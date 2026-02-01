@@ -37,7 +37,7 @@ func main() {
 	}
 	db, err := postgres.New(cfg.DB_URL, 10, 10, "1s")
 	if err != nil {
-		log.Fatal().Err(err).Msg("error no open connection")
+		log.Fatal().Err(err).Msg("postgres: error no open connection")
 	}
 
 	// asynq client

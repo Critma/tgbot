@@ -1,6 +1,22 @@
 name: tgsheduler
 services:
-  postgres-db:
+  bot:
+    build:
+      context: ..
+      dockerfile: build/package/Dockerfile
+    container_name: go_bot
+    restart: unless-stopped
+    volumes:
+      - ../configs/.env:/app/.env
+    networks:
+      - dev-network
+    depends_on:
+      - postgres
+      - redis
+    ports:
+      - "9091:9091"
+
+  postgres:
     image: postgres:18.1-alpine3.23
     volumes:
       - pdata:/var/lib/postgresql/data
@@ -19,10 +35,12 @@ services:
       timeout: 30s
       retries: 5
       start_period: 30s
+    networks:
+      - dev-network
 
   redis:
     image: redis:8.4.0-alpine
-    container_name: redis_container
+    container_name: redis
     restart: always
     ports:
       - "6379:6379"
@@ -41,23 +59,30 @@ services:
     networks:
       - dev-network
     command: --redis-addr=redis:${REDIS_PORT}
-  
+
   prometheus:
     image: prom/prometheus:latest
+    container_name: prometheus
     volumes:
       - ./prometheus.yml:/etc/prometheus/prometheus.yml
     ports:
       - "19090:9090"
-  
+    networks:
+      - dev-network
+
   grafana:
     image: grafana/grafana:main-ubuntu
+    container_name: grafana
     ports:
       - "13000:3000"
     volumes:
       - grafana-data:/var/lib/grafana
+    networks:
+      - dev-network
 
 networks:
   dev-network:
+
 
 volumes:
   pdata:

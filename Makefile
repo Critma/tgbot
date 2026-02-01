@@ -11,11 +11,11 @@ COV_HTML_PATH=$(TEST_DIR)/index.html
 compose-up:
 	docker-compose -f $(COMPOSE_PATH) --env-file $(ENV_PATH) up -d
 
-# run --
-build-release:
+# run local--
+build:
 	go build -o $(CMD) $(CMD_PATH)
 
-run: build-release
+run: build
 	./$(CMD)
 
 run-debug:
@@ -41,6 +41,9 @@ migrate-down:
 
 migrate-reset:
 	migrate -path=$(MIGRATIONS_PATH) -database $(POSTGRES_URL) -verbose down
+	
+install-deps:
+	go install -tags 'postgres' github.com/golang-migrate/migrate/v4/cmd/migrate@latest 
 
 # --
 
@@ -53,10 +56,7 @@ test:
 
 # --
 
-install-deps:
-	go install -tags 'postgres' github.com/golang-migrate/migrate/v4/cmd/migrate@latest 
-
 clean :
 	rm -rf $(CMD) $(TEST_DIR)
 
-.PHONY: run clean
+.PHONY: run clean build

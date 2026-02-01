@@ -2,6 +2,7 @@
 .*air.toml
 *.log
 *.exe
-main
+main*
 .vscode
 *tmp
+build/test*
